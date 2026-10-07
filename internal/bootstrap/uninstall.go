@@ -2,13 +2,41 @@ package bootstrap
 
 import (
 	"fmt"
-	"os"
+
+	instll "github.com/Des1red/goinstall/cmd"
 )
 
 func Uninstall() {
-	if err := os.Remove(installPath); err != nil {
-		fmt.Println("error (are you root?):", err)
+	err :=
+		instll.SetBinaryName(
+			binName,
+		)
+
+	if err != nil {
+		fmt.Println(
+			"failed to set binary name:",
+			err,
+		)
+
 		return
 	}
-	fmt.Println("removed", installPath)
+
+	err =
+		instll.Uninstall(
+			true,
+			true,
+		)
+
+	if err != nil {
+		fmt.Println(
+			"uninstallation failed:",
+			err,
+		)
+
+		return
+	}
+
+	fmt.Println(
+		"ipspect removed.",
+	)
 }

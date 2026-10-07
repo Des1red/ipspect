@@ -2,42 +2,43 @@ package bootstrap
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
+
+	instll "github.com/Des1red/goinstall/cmd"
 )
 
 const binName = "ipspect"
-const installPath = "/usr/local/bin/" + binName
-const InstallPath = installPath
 
 func Install() {
-	cmd := exec.Command("go", "build", "-o", binName, ".")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Println("build failed:", err)
-		return
-	}
+	err :=
+		instll.SetBinaryName(
+			binName,
+		)
 
-	src, err := os.Open(binName)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println(
+			"failed to set binary name:",
+			err,
+		)
+
 		return
 	}
-	defer src.Close()
 
-	dst, err := os.OpenFile(installPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	err =
+		instll.Install(
+			true,
+			true,
+		)
+
 	if err != nil {
-		fmt.Println("error (are you root?):", err)
-		return
-	}
-	defer dst.Close()
+		fmt.Println(
+			"installation failed:",
+			err,
+		)
 
-	if _, err := dst.ReadFrom(src); err != nil {
-		fmt.Println("error copying binary:", err)
 		return
 	}
 
-	os.Remove(binName)
-	fmt.Println("installed to", installPath)
+	fmt.Println(
+		"ipspect installed.",
+	)
 }

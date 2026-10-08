@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"ipspect/internal/bootstrap"
 	"ipspect/internal/models"
 
 	"github.com/Des1red/clihelp"
@@ -25,7 +24,7 @@ func help() {
 		clihelp.F(
 			"install",
 			"",
-			"build and install the binary to "+bootstrap.InstallPath,
+			"build and install the binary",
 		),
 		clihelp.F(
 			"uninstall",

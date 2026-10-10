@@ -31,6 +31,8 @@ func Run() {
 
 	output.Log("arp", "")
 
+	prioritizeTargets()
+
 	search.Controller()
 
 	sortPorts()

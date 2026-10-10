@@ -68,10 +68,7 @@ func flagcheck() {
 func scan() {
 	internal.Target()
 
-	portscan.Ping()
-	portscan.Ports()
-	output.Log("result", "")
-
+	portscan.Run()
 }
 func save() {
 	filename, err := output.Save()

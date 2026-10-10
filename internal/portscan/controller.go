@@ -3,19 +3,41 @@ package portscan
 import (
 	"ipspect/internal/models"
 	"ipspect/internal/output"
+	"ipspect/internal/portscan/arp"
+	"ipspect/internal/portscan/enrich"
+	"ipspect/internal/portscan/ping"
+	"ipspect/internal/portscan/search"
+	"sort"
 )
 
 func Run() {
-	ping()
+	if err := ping.Controller(); err != nil {
+		output.Log(
+			"error",
+			"failed to initialize ICMP scanner: "+
+				err.Error(),
+		)
+	}
+
 	output.Log("icmp", "")
 
-	port_search()
+	if err := arp.Controller(); err != nil {
+		output.Log(
+			"error",
+			"ARP discovery failed: "+
+				err.Error(),
+		)
+	}
+
+	output.Log("arp", "")
+
+	search.Controller()
 
 	sortPorts()
 	output.Log("ports", "")
 
 	if hasOpenPorts() {
-		enrich()
+		enrich.Controller()
 	}
 
 	output.Log("result", "")
@@ -29,4 +51,18 @@ func hasOpenPorts() bool {
 	}
 
 	return false
+}
+
+func sortPorts() {
+	for i := range models.LOOT.Hosts {
+		host := &models.LOOT.Hosts[i]
+
+		sort.Ints(host.Ports)
+		sort.Ints(host.Closed)
+		sort.Ints(host.Filtered)
+
+		sort.Slice(host.Details, func(i, j int) bool {
+			return host.Details[i].Port < host.Details[j].Port
+		})
+	}
 }

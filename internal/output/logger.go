@@ -28,11 +28,15 @@ func Log(
 	case "icmp":
 		logICMP()
 
+	case "arp":
+		logARP()
+
 	case "ports":
 		logPorts()
 
 	case "result":
 		logResult()
+
 	default:
 		fmt.Println(message(kind, value))
 	}
@@ -149,6 +153,51 @@ func logResult() {
 				detail.Headers,
 			)
 		}
+	}
+
+	w.Flush()
+}
+
+func logARP() {
+	fmt.Println(
+		message(
+			"arp",
+			fmt.Sprintf(
+				"accept arp [%s]",
+				strings.Join(
+					models.LOOT.ARPReachable,
+					", ",
+				),
+			),
+		),
+	)
+
+	if len(models.LOOT.ARPResults) == 0 {
+		return
+	}
+
+	w := tabwriter.NewWriter(
+		os.Stdout,
+		0,
+		4,
+		2,
+		' ',
+		0,
+	)
+
+	fmt.Fprintln(
+		w,
+		"IP\tMAC\tINTERFACE",
+	)
+
+	for _, host := range models.LOOT.ARPResults {
+		fmt.Fprintf(
+			w,
+			"%s\t%s\t%s\n",
+			host.IP,
+			host.MAC,
+			host.Interface,
+		)
 	}
 
 	w.Flush()

@@ -1,4 +1,4 @@
-package portscan
+package enrich
 
 var commonPorts = map[int]string{
 	1:     "tcpmux",

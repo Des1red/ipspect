@@ -47,5 +47,14 @@ type HostResult struct {
 
 var LOOT struct {
 	ICMPReachable []string
+	ARPReachable  []string
+	ARPResults    []ARPResult
 	Hosts         []HostResult
+}
+
+type ARPResult struct {
+	IP        string
+	MAC       string
+	Vendor    string
+	Interface string
 }

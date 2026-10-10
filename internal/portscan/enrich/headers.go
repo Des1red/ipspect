@@ -1,4 +1,4 @@
-package portscan
+package enrich
 
 import (
 	"bufio"

@@ -41,7 +41,7 @@ func message(
 	value string,
 ) string {
 	switch kind {
-	case "icmp", "open", "success":
+	case "icmp", "arp", "open", "success":
 		return green + value + reset
 
 	case "closed":

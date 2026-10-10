@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+type TargetRange struct {
+	Multi  bool
+	Single bool
+}
+
+var TR TargetRange
+
 var INFO struct {
 	TargetName string
 	Targets    []net.IP
@@ -26,11 +33,16 @@ type PortDetail struct {
 }
 
 type HostResult struct {
-	Target   string
+	Target string
+
 	Ports    []int
 	Closed   []int
 	Filtered []int
-	Details  []PortDetail
+
+	ClosedCount   int
+	FilteredCount int
+
+	Details []PortDetail
 }
 
 var LOOT struct {

@@ -372,8 +372,11 @@ func recordPortState(
 	port int,
 	state string,
 ) {
-	host :=
-		&models.LOOT.Hosts[hostIndex]
+	host := &models.LOOT.Hosts[hostIndex]
+
+	explicitPorts := len(models.INFO.Ports) > 0
+
+	storePorts := models.TR.Single || explicitPorts
 
 	switch state {
 	case "open":
@@ -391,22 +394,16 @@ func recordPortState(
 		)
 
 	case "closed":
-		host.Closed = append(
-			host.Closed,
-			port,
-		)
+		host.ClosedCount++
 
-		/*
-			If the user explicitly selected ports
-			with -p, retain closed ports in Details
-			so Result() and saved output can show
-			the exact state.
+		if storePorts {
+			host.Closed = append(
+				host.Closed,
+				port,
+			)
+		}
 
-			For the default 1-65535 scan we avoid
-			creating tens of thousands of detail
-			rows for closed ports.
-		*/
-		if len(models.INFO.Ports) > 0 {
+		if explicitPorts {
 			host.Details = append(
 				host.Details,
 				models.PortDetail{
@@ -417,10 +414,24 @@ func recordPortState(
 		}
 
 	case "filtered":
-		host.Filtered = append(
-			host.Filtered,
-			port,
-		)
+		host.FilteredCount++
+
+		if storePorts {
+			host.Filtered = append(
+				host.Filtered,
+				port,
+			)
+		}
+
+		if explicitPorts {
+			host.Details = append(
+				host.Details,
+				models.PortDetail{
+					Port:  port,
+					State: state,
+				},
+			)
+		}
 	}
 }
 

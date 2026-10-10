@@ -1,11 +1,9 @@
 package portscan
 
 import (
-	"fmt"
 	"ipspect/internal/models"
+	"ipspect/internal/output"
 	"sort"
-	"strconv"
-	"strings"
 )
 
 func sortPorts() {
@@ -31,69 +29,20 @@ func portScan() (bool, bool) {
 	foundFiltered := false
 
 	for _, host := range models.LOOT.Hosts {
-		fmt.Println(host.Target)
-
 		if len(host.Ports) > 0 {
 			foundOpen = true
-
-			fmt.Printf(
-				"open     [%s]\n",
-				formatPorts(host.Ports),
-			)
-		} else {
-			fmt.Println("open     []")
 		}
 
-		/*
-			Only display closed ports when
-			the user explicitly selected
-			ports with -p.
-
-			Default 1-65535 scans do not
-			print thousands of closed ports.
-		*/
-		if len(models.INFO.Ports) > 0 {
-			fmt.Printf(
-				"closed   [%s]\n",
-				formatPorts(host.Closed),
-			)
-		}
-
-		if len(host.Filtered) > 0 {
+		if host.FilteredCount > 0 {
 			foundFiltered = true
 		}
-
-		fmt.Printf(
-			"filtered %d\n",
-			len(host.Filtered),
-		)
-
-		fmt.Println()
 	}
+
+	output.Log("ports", "")
 
 	if foundOpen {
 		enrich()
 	}
 
 	return foundOpen, foundFiltered
-}
-
-func formatPorts(
-	ports []int,
-) string {
-	values := make(
-		[]string,
-		len(ports),
-	)
-
-	for i, port := range ports {
-		values[i] = strconv.Itoa(
-			port,
-		)
-	}
-
-	return strings.Join(
-		values,
-		", ",
-	)
 }

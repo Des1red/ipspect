@@ -70,7 +70,7 @@ func scan() {
 
 	portscan.Ping()
 	portscan.Ports()
-	portscan.Result()
+	output.Log("result", "")
 
 }
 func save() {

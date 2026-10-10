@@ -234,6 +234,11 @@ func setTarget(value string) error {
 	models.INFO.TargetName = value
 	models.INFO.Targets = targets
 
+	models.TR = models.TargetRange{
+		Single: len(targets) == 1,
+		Multi:  len(targets) > 1,
+	}
+
 	return nil
 }
 

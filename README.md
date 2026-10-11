@@ -1,43 +1,71 @@
+
 # ipspect
 
-`ipspect` is a command-line IP and TCP scanner written in Go.
+`ipspect` is a command-line network scanner written in Go, designed for IPv4 host discovery, TCP port scanning, and service inspection.
 
-It performs concurrent ICMP discovery, followed by a half-open TCP SYN scan. Open ports are then enriched using full TCP connections to retrieve service information, banners, HTTP response headers, and connection latency.
+It combines ICMP and ARP discovery with a prioritized, half-open TCP SYN scan. Open ports are subsequently enriched through TCP connections to identify services, retrieve banners, inspect HTTP responses, and measure connection latency.
 
-ICMP is used as an additional reachability signal only. A target that does not respond to ICMP is still scanned for open TCP ports.
+Discovery results are used to prioritize targets, not to exclude them. Every requested IP is still included in the TCP scan, even if it does not respond to ICMP or ARP.
 
 ## Features
 
-* IPv4 target scanning
-* IPv4 CIDR scanning
-* Concurrent ICMP discovery
-* 3 ICMP retries after the initial request
-* ICMP reachability tracking
-* Half-open TCP SYN scanning
-* Concurrent SYN probe window
-* Open, closed, and filtered port classification
-* Single ports, ranges, lists, and mixed port specifications
-* Concurrent TCP enrichment of open ports
-* Built-in common-port service mapping
-* TCP banner grabbing
-* HTTP and HTTPS probing
-* HTTP response header collection
-* Connection latency measurement
-* Markdown result export
+### Host Discovery
+- Single IPv4 addresses and IPv4 CIDR ranges
+- Concurrent ICMP Echo discovery
+- Three ICMP retries after the initial request
+- Active ARP discovery on directly connected IPv4 networks
+- ARP MAC address and interface identification
+- ICMP/ARP discovery result deduplication
+- Target prioritization before TCP scanning
+- Preservation of undiscovered targets for TCP scanning
+
+### TCP Port Scanning
+- Half-open TCP SYN scanning
+- Default port range: `1-65535`
+- Configurable port selection with `-p`
+- Single ports, ranges, lists, and mixed specifications
+- Concurrent window of 500 outstanding SYN probes
+- Open, closed, and filtered classification
+- Memory-conscious results for CIDR scans
+
+### Service Enrichment
+- Built-in TCP port/service mapping
+- Concurrent enrichment with 128 workers
+- TCP banner grabbing
+- HTTP and HTTPS probing
+- HTTP response header extraction
+- TCP connection latency measurement
+
+### Output
+- Colored terminal output
+- ICMP and ARP discovery information
+- ARP IP, MAC, and interface details
+- Per-host TCP port summaries
+- Service information and HTTP headers
+- Markdown report export
 
 ## Requirements
 
-* Go
-* Linux
-* Raw socket privileges
+- Linux
+- Go
+- Root privileges or appropriate raw-socket capabilities
+- Network access to the selected targets
 
-`ipspect` uses raw sockets for ICMP and TCP SYN scanning, so it normally needs to run as root:
+`ipspect` uses raw sockets for ICMP, ARP, and TCP SYN operations.
+
+Run with elevated privileges:
+
+```bash
+sudo go run main.go
+```
+
+Or, after installation:
 
 ```bash
 sudo ipspect
 ```
 
-Alternatively, the installed binary can be granted the appropriate raw-socket capability.
+ARP discovery uses Linux `AF_PACKET` sockets and operates only on directly connected Ethernet-style networks.
 
 ## Installation
 
@@ -47,230 +75,328 @@ From the project directory:
 sudo go run main.go install
 ```
 
-This builds and installs `ipspect`.
+This builds and installs the `ipspect` binary.
 
-You can then run it with:
+Run the installed binary:
 
 ```bash
 sudo ipspect
 ```
 
-To uninstall:
+Uninstall:
 
 ```bash
 sudo ipspect uninstall
 ```
 
+### Available Commands
+
+| Command | Description |
+|---|---|
+| `install` | Build and install the binary |
+| `uninstall` | Remove the installed binary |
+| `help` | Display CLI usage |
+| `version` | Display the current version |
+
 ## Usage
 
-Run:
+Start a scan:
 
 ```bash
 sudo ipspect
 ```
 
-You will be prompted for a target:
+The program prompts for a target:
 
 ```text
-IP >> 192.168.1.105
+IP >> 192.168.1.20
 ```
 
-A CIDR range can also be supplied:
+CIDR scanning is also supported:
 
 ```text
 IP >> 192.168.1.0/24
 ```
 
-By default, `ipspect` scans all TCP ports:
+The maximum supported CIDR size is `/16`.
 
-```text
-1-65535
-```
+By default, the scanner inspects every TCP port from `1` through `65535`.
 
 ## Port Selection
 
-Use `-p` to restrict the TCP scan.
+Use `-p` to control which ports are scanned.
 
-### Single port
+### Single Port
 
 ```bash
 sudo ipspect -p 22
 ```
 
-### Port range
+### Port Range
 
 ```bash
-sudo ipspect -p 1-1024
+sudo ipspect -p 1-1000
 ```
 
-### Port list
+### Multiple Ports
 
 ```bash
 sudo ipspect -p 21,22,80,443
 ```
 
-### Mixed ports and ranges
+### Mixed Ports and Ranges
 
 ```bash
 sudo ipspect -p 21,22,80,443,8000-8100
 ```
 
-Duplicate ports are removed and the selected ports are normalized internally before scanning.
+Port selection supports values between `1` and `65535`.
 
-When ports are explicitly selected with `-p`, closed ports are also retained and displayed.
+Duplicate ports are automatically removed, and the selected ports are sorted before scanning.
 
-For example:
+There are no separate quick, smart, or full scanning modes. The `-p` flag controls coverage.
 
-```text
-192.168.1.105
-open     [80, 443]
-closed   [21, 22]
-filtered 0
-```
+If `-p` is omitted, all 65,535 TCP ports are scanned.
 
-During the default `1-65535` scan, closed ports are not individually displayed to avoid producing tens of thousands of unnecessary result entries.
+## Scan Architecture
 
-## Saving Results
-
-Use `-s` to save the scan as Markdown:
-
-```bash
-sudo ipspect -s
-```
-
-It can also be combined with port selection:
-
-```bash
-sudo ipspect -s -p 22,80,443
-```
-
-The saved report includes:
-
-* target
-* selected port specification
-* ICMP-reachable hosts
-* open ports
-* explicitly selected closed ports
-* service names
-* banners
-* latency
-* HTTP response headers
-
-The output filename is generated from the target.
-
-## Commands
-
-| Command     | Description                 |
-| ----------- | --------------------------- |
-| `install`   | Build and install `ipspect` |
-| `uninstall` | Remove the installed binary |
-| `help`      | Show usage information      |
-| `version`   | Show the current version    |
-
-Examples:
-
-```bash
-sudo go run main.go install
-
-sudo ipspect help
-
-sudo ipspect version
-
-sudo ipspect uninstall
-```
-
-## Flags
-
-| Flag | Value             | Description                        |
-| ---- | ----------------- | ---------------------------------- |
-| `-s` |                   | Save scan results as Markdown      |
-| `-p` | `22`              | Scan a single TCP port             |
-| `-p` | `1-1024`          | Scan a TCP port range              |
-| `-p` | `21,22,80,443`    | Scan selected TCP ports            |
-| `-p` | `22,80,8000-8100` | Scan a mixture of ports and ranges |
-
-If `-p` is omitted, ports `1-65535` are scanned.
-
-## Scan Flow
-
-The scanner runs in three main stages:
+The scanner is divided into independent discovery, scheduling, packet handling, enrichment, and output stages.
 
 ```text
-targets
-   |
-   v
-ICMP discovery
-   |
-   |-- responders recorded
-   |
-   v
-all original targets
-   |
-   v
-TCP SYN scan
-   |
-   |-- SYN/ACK -> open -> RST
-   |-- RST     -> closed
-   |-- timeout -> filtered
-   |
-   v
-open ports
-   |
-   v
-TCP enrichment
-   |
-   |-- service lookup
-   |-- banner
-   |-- HTTP/HTTPS probe
-   |-- HTTP headers
-   |-- latency
-   |
-   v
-results
+Target Input
+     |
+     v
+ICMP Discovery
+     |
+     v
+ARP Discovery
+     |
+     v
+Target Prioritization
+     |
+     |-- Priority 1: ICMP responders
+     |-- Priority 2: ARP-only responders
+     |-- Priority 3: Remaining targets
+     |
+     |-- Deduplicate IP addresses
+     |
+     v
+TCP SYN Search
+     |
+     |-- SYN/ACK -> Open -> RST
+     |-- RST     -> Closed
+     |-- Timeout -> Filtered
+     |
+     v
+Port Result Sorting
+     |
+     v
+Service Enrichment
+     |
+     |-- Service lookup
+     |-- TCP banner
+     |-- HTTP/HTTPS inspection
+     |-- HTTP headers
+     |-- Connection latency
+     |
+     v
+Terminal Results / Markdown Export
 ```
+
+The main scanning controller orchestrates these stages.
+
+Each scanning package exposes its own controller while keeping its internal operations private.
 
 ## ICMP Discovery
 
-ICMP discovery uses `golang.org/x/net/icmp`.
+ICMP discovery is handled by `internal/portscan/ping/`.
 
-The scanner uses shared ICMP sockets and keeps multiple probes outstanding concurrently rather than opening a separate raw socket for every target.
+It uses `golang.org/x/net/icmp` and supports IPv4 and IPv6 Echo operations internally, although TCP SYN scanning currently targets IPv4.
 
-Each outstanding target receives a unique ICMP sequence number.
+### Configuration
 
-A target gets:
+| Setting | Value |
+|---|---|
+| Concurrent discovery window | 500 |
+| Reply timeout | 750 ms |
+| Retries | 3 |
+| Maximum requests per target | 4 |
 
-```text
-initial request
-retry 1
-retry 2
-retry 3
+Each outstanding request receives an ICMP sequence number.
+
+Responses are validated using the ICMP identifier, sequence number, and source IP.
+
+Discovered addresses are stored in:
+
+```go
+models.LOOT.ICMPReachable
 ```
 
-for a maximum of four Echo Requests.
+ICMP failure does not prevent TCP scanning.
 
-A valid response is matched using the ICMP identifier, sequence number, and source IP.
+## ARP Discovery
 
-### ICMP Does Not Gate TCP Scanning
+ARP discovery is handled by `internal/portscan/arp/`.
 
-Failure to answer ICMP does **not** mean that a target is removed from the scan.
+It uses Linux raw Ethernet sockets to identify devices on directly connected IPv4 networks.
 
-For example:
+ARP discovery runs for both single-IP and CIDR scans.
 
-```text
-192.168.1.20
-ICMP: no response
-TCP 443: SYN/ACK
+### Process
+
+1. Enumerate eligible local network interfaces.
+2. Identify target IPs belonging to directly connected subnets.
+3. Send ARP requests on the appropriate interface.
+4. Receive and validate ARP replies.
+5. Extract the responding IP and MAC address.
+6. Associate each response with its local interface.
+7. Deduplicate and sort the discovered hosts.
+
+### Configuration
+
+| Setting | Value |
+|---|---|
+| ARP request rate | 500 packets/second |
+| Final reply wait | 750 ms |
+| Requests per target | 1 |
+
+ARP results contain:
+
+| Field | Description |
+|---|---|
+| IP | Discovered IPv4 address |
+| MAC | Responding hardware address |
+| Interface | Local interface used for discovery |
+| Vendor | Reserved for future manufacturer identification |
+
+Results are stored in:
+
+```go
+models.LOOT.ARPReachable
+models.LOOT.ARPResults
 ```
 
-The target can still be discovered through its open TCP ports.
+`ARPReachable` provides IP addresses for prioritization.
 
-ICMP-responsive targets are stored separately and included in saved scan results.
+`ARPResults` preserves detailed information including the MAC address and interface.
 
-## TCP SYN Scan
+Vendor identification is not implemented yet.
 
-Port discovery uses a half-open TCP SYN scan rather than establishing a full TCP connection for every port.
+### ARP Limitations
 
-The basic exchange for an open port is:
+ARP discovery is limited to the local Layer 2 network.
+
+It cannot directly discover devices behind ordinary routers.
+
+Only eligible local IPv4 targets are probed, and targets outside those networks are left for other discovery and TCP scanning stages.
+
+ARP replies also do not provide cryptographic proof of a host's identity.
+
+## Target Prioritization
+
+Target prioritization is implemented in:
+
+```text
+internal/portscan/priority.go
+```
+
+After ICMP and ARP discovery finish, IPSpect constructs a single ordered target list.
+
+### Priority Rules
+
+| Priority | Targets |
+|---|---|
+| 1 | ICMP-discovered hosts |
+| 2 | ARP-discovered hosts not already included |
+| 3 | All remaining original targets |
+
+### Example
+
+Original target range:
+
+```text
+192.168.1.10
+192.168.1.11
+192.168.1.12
+192.168.1.13
+192.168.1.14
+```
+
+ICMP discovery:
+
+```text
+192.168.1.12
+192.168.1.14
+```
+
+ARP discovery:
+
+```text
+192.168.1.11
+192.168.1.12
+```
+
+Final scanning order:
+
+```text
+192.168.1.12  ICMP
+192.168.1.14  ICMP
+192.168.1.11  ARP
+192.168.1.10  Remaining
+192.168.1.13  Remaining
+```
+
+Even though `192.168.1.12` was discovered by both protocols, it appears only once.
+
+### Guarantees
+
+- Every original unique target is retained.
+- Duplicate IPs are removed.
+- Discovery does not add addresses outside the requested scope.
+- ICMP responders receive the highest priority.
+- ARP-only responders are prioritized next.
+- Silent hosts are still scanned.
+- Each unique target is processed only once by the TCP search stage.
+
+Prioritization changes the scanning order, not the selected port range or total coverage.
+
+## TCP SYN Scanning
+
+TCP scanning is divided between two packages:
+
+```text
+internal/portscan/search/
+internal/portscan/probe/
+```
+
+### Search
+
+The `search/` package manages:
+
+- Scan jobs and scheduling
+- Target and port iteration
+- Active probe tracking
+- SYN dispatch
+- Reply classification
+- Probe timeouts
+- Port-state recording
+
+### Probe
+
+The `probe/` package handles:
+
+- Raw TCP socket initialization
+- Source IPv4 selection
+- Source port allocation
+- TCP sequence generation
+- TCP segment construction
+- TCP checksums
+- SYN and RST transmission
+- TCP reply reception
+
+### Half-Open SYN Exchange
+
+For an open port:
 
 ```text
 ipspect -> SYN
@@ -278,252 +404,332 @@ target  -> SYN/ACK
 ipspect -> RST
 ```
 
-The three primary states are:
+The handshake is not completed during port discovery.
+
+### Port States
+
+| Response | Classification |
+|---|---|
+| SYN/ACK | Open |
+| RST | Closed |
+| No matching response before timeout | Filtered |
+
+The scanner maintains up to 500 outstanding SYN probes and uses a 500 ms timeout.
+
+Valid responses are correlated with pending probes using the target address, source/destination ports, and TCP acknowledgment information.
+
+## Result Storage
+
+IPSpect adapts its result storage depending on the target count and selected ports.
+
+### Single Target
+
+Open ports are recorded individually.
+
+During a default full-range scan, closed and filtered port numbers may be retained internally, while the normal summary displays their counts.
+
+When `-p` is specified, selected closed and filtered ports are also retained as individual results.
+
+### Multiple Targets
+
+For a default full-range CIDR scan:
+
+- Open ports are retained individually.
+- Closed ports are counted.
+- Filtered ports are counted.
+- Individual closed and filtered port numbers are not retained.
+
+This avoids storing tens of thousands of unnecessary records for every address in a large CIDR range.
+
+### Explicit Port Selection
+
+When `-p` is supplied, the selected closed and filtered ports are retained even during multi-target scans.
+
+This preserves detailed results for focused scans.
+
+## Service Enrichment
+
+Service enrichment is handled by:
 
 ```text
-SYN/ACK      open
-RST          closed
-no response  filtered
+internal/portscan/enrich/
 ```
 
-`ipspect` keeps up to 500 SYN probes outstanding concurrently.
+Only ports classified as open are enriched.
 
-A shared raw TCP receiver processes replies and matches them to pending probes using information such as the source/destination ports, target address, and TCP sequence/acknowledgement numbers.
+The enrichment stage uses a worker pool with 128 concurrent workers.
 
-This avoids creating a full TCP connection merely to determine whether every port is open.
+For each open port, IPSpect attempts to identify its service using the built-in common-port table.
 
-## Enrichment
-
-After SYN discovery completes, only open ports move to the enrichment stage.
-
-Enrichment uses a separate worker pool so multiple open ports can be processed concurrently.
-
-The current enrichment pool uses:
-
-```text
-128 workers
-```
-
-Each open port is assigned a service name using the built-in common-port table.
-
-If a port is not present in the table:
+Unknown ports receive the service label:
 
 ```text
 unknown
 ```
 
-is used.
+### TCP Banner Grabbing
 
-## TCP Banner Grabbing
+For non-HTTP services, IPSpect establishes a full TCP connection and attempts to read a service banner.
 
-For non-HTTP services, `ipspect` establishes one full TCP connection to the open port.
-
-It then waits briefly for a service-provided banner.
-
-For example, SSH may return:
+Example:
 
 ```text
 SSH-2.0-OpenSSH_9.x
 ```
 
-The same connection is used to record connection latency.
+Connection latency is recorded during the TCP connection attempt.
 
-## HTTP and HTTPS
+### HTTP and HTTPS Inspection
 
-Ports identified as HTTP or HTTPS receive an HTTP-aware probe.
+Known HTTP/HTTPS service ports receive an HTTP-aware probe.
 
-For HTTP:
-
-```text
-TCP connect
-GET /
-read response
-close
-```
-
-For HTTPS:
-
-```text
-TCP connect
-TLS handshake
-GET /
-read response
-close
-```
-
-TLS certificate verification is skipped because this stage is being used for service inspection rather than certificate trust validation.
-
-The request includes:
+The request uses HTTP/1.0 and includes:
 
 ```http
 GET / HTTP/1.0
-Host: <target>
+Host: 192.168.1.20
 User-Agent: ipspect
 Connection: close
 ```
 
-The HTTP status line becomes the port banner, for example:
+IPSpect collects the HTTP status line and response headers.
+
+For HTTPS, a TLS connection is established before sending the request.
+
+TLS certificate verification is disabled during this inspection stage to permit service probing of endpoints with untrusted certificates. Certificate authenticity is therefore not verified.
+
+HTTP headers are retained as part of the port details.
+
+## Terminal Output
+
+The output package is located in:
 
 ```text
-HTTP/1.1 200 OK
+internal/output/
 ```
 
-The remaining response headers are also collected.
+It provides colored terminal messages, port summaries, discovery output, and formatted result tables.
 
-Examples include:
+### ICMP Output
 
 ```text
-Server
-Content-Type
-Content-Length
-Location
-Content-Security-Policy
-Strict-Transport-Security
-X-Frame-Options
-X-Content-Type-Options
+accept icmp [192.168.1.20]
 ```
 
-The exact headers depend on the target server.
+### ARP Output
 
-## Example
+```text
+accept arp [192.168.1.20]
+
+IP            MAC                INTERFACE
+192.168.1.20  aa:bb:cc:dd:ee:ff  enp9s0
+```
+
+The MAC and interface values above are illustrative.
+
+### Port Summary
+
+```text
+192.168.1.20
+open     [5355, 27500]
+closed   65533
+filtered 0
+```
+
+### Detailed Results
+
+```text
+HOST   192.168.1.20
+PORT   STATE  SERVICE      BANNER  LATENCY
+5355   open   llmnr                203.788µs
+27500  open   tw-auth-key          199.04µs
+```
+
+The exact results depend on the target, network conditions, and selected ports.
+
+## Saving Results
+
+Use `-s` to export the scan as Markdown:
 
 ```bash
-sudo ipspect -p 21,22,80,443
+sudo ipspect -s
 ```
 
-```text
-IP >> 192.168.1.105
+It can be combined with port selection:
 
-accept icmp [192.168.1.105]
-
-192.168.1.105
-open     [80, 443]
-closed   [21, 22]
-filtered 0
-
-
-HOST           192.168.1.105
-PORT  STATE    SERVICE  BANNER               LATENCY
-21    closed
-22    closed
-80    open     http     HTTP/1.1 200 OK      1.2ms
-                         Content-Type:        text/html
-                         Server:              nginx
-443   open     https    HTTP/1.1 200 OK      4.1ms
-                         Content-Type:        text/html
-                         Server:              nginx
+```bash
+sudo ipspect -s -p 22,80,443
 ```
 
-The exact output depends on the target and network conditions.
+The Markdown report currently contains:
+
+- Original target specification
+- Selected port specification
+- ICMP-reachable hosts
+- Port results
+- Service names
+- TCP banners
+- Connection latency
+- HTTP response headers
+
+ARP information is collected and displayed in the terminal, but ARP result export has not yet been added to the Markdown writer.
+
+The output filename is generated from the target specification.
 
 ## Project Structure
 
 ```text
 .
-├── main.go
 ├── cmd/
 │   ├── flags.go
 │   ├── lifecycle.go
 │   └── root.go
 │
-└── internal/
-    ├── input.go
-    │
-    ├── bootstrap/
-    │   ├── install.go
-    │   └── uninstall.go
-    │
-    ├── models/
-    │   ├── scope.go
-    │   └── version.go
-    │
-    ├── output/
-    │   └── save.go
-    │
-    └── portscan/
-        ├── ping.go
-        ├── syn_probe.go
-        ├── port_search.go
-        ├── port_scan.go
-        ├── port_enrich.go
-        ├── header_grab.go
-        ├── port_list.go
-        └── portscan.go
+├── docs/
+│   └── changelog files
+│
+├── internal/
+│   ├── bootstrap/
+│   │   ├── install.go
+│   │   └── uninstall.go
+│   │
+│   ├── models/
+│   │   ├── scope.go
+│   │   └── version.go
+│   │
+│   ├── output/
+│   │   ├── format.go
+│   │   ├── logger.go
+│   │   └── save.go
+│   │
+│   ├── portscan/
+│   │   ├── controller.go
+│   │   ├── priority.go
+│   │   │
+│   │   ├── arp/
+│   │   │   ├── controller.go
+│   │   │   ├── interfaces.go
+│   │   │   ├── recieve_linux.go
+│   │   │   ├── result.go
+│   │   │   ├── scan.go
+│   │   │   ├── send_linux.go
+│   │   │   ├── socket_linux.go
+│   │   │   └── types.go
+│   │   │
+│   │   ├── ping/
+│   │   │   ├── controller.go
+│   │   │   ├── dispatch.go
+│   │   │   ├── recieve.go
+│   │   │   ├── reply.go
+│   │   │   ├── result.go
+│   │   │   ├── scan.go
+│   │   │   ├── scanner.go
+│   │   │   ├── send.go
+│   │   │   ├── sequence.go
+│   │   │   ├── timeout.go
+│   │   │   └── types.go
+│   │   │
+│   │   ├── probe/
+│   │   │   ├── checksum.go
+│   │   │   ├── packet.go
+│   │   │   ├── recieve.go
+│   │   │   ├── scanner.go
+│   │   │   ├── send.go
+│   │   │   ├── sequence.go
+│   │   │   └── source.go
+│   │   │
+│   │   ├── search/
+│   │   │   ├── controller.go
+│   │   │   ├── dispach.go
+│   │   │   ├── ports.go
+│   │   │   ├── reply.go
+│   │   │   ├── search.go
+│   │   │   ├── state.go
+│   │   │   ├── timeout.go
+│   │   │   └── types.go
+│   │   │
+│   │   └── enrich/
+│   │       ├── common_ports.go
+│   │       ├── controller.go
+│   │       ├── headers.go
+│   │       ├── http.go
+│   │       ├── port.go
+│   │       ├── service.go
+│   │       └── tcp.go
+│   │
+│   └── input.go
+│
+├── go.mod
+├── go.sum
+├── main.go
+└── README.md
 ```
 
-### Main Components
+## Package Responsibilities
 
-`ping.go`
+| Package | Responsibility |
+|---|---|
+| `cmd` | CLI commands, flags, lifecycle |
+| `internal` | Target parsing and port selection |
+| `models` | Shared configuration and results |
+| `bootstrap` | Binary installation and removal |
+| `portscan` | Main scanning orchestration and target prioritization |
+| `ping` | ICMP host discovery |
+| `arp` | Local IPv4 ARP discovery and MAC collection |
+| `search` | TCP SYN scheduling and state classification |
+| `probe` | Low-level TCP packet operations |
+| `enrich` | Service identification and network enrichment |
+| `output` | Terminal formatting and Markdown export |
 
-Handles concurrent ICMP discovery and retries.
+The architecture separates orchestration from the individual scanning engines.
 
-`syn_probe.go`
+The main controller coordinates scanning stages, while each subsystem is responsible for its own internal execution.
 
-Handles raw TCP packet creation, checksums, SYN transmission, reply reception, and RST transmission.
+## Design Principles
 
-`port_search.go`
+### Discovery Does Not Exclude Targets
 
-Controls the concurrent SYN scan, pending probes, timeouts, and port-state classification.
+ICMP and ARP are used to improve host discovery and scanning priority.
 
-`port_scan.go`
+A target that does not respond remains eligible for TCP scanning.
 
-Sorts and summarizes scan results before enrichment.
+### Deduplication Prevents Repeated Scans
 
-`port_enrich.go`
+Discovered and original target lists are merged into one ordered sequence.
 
-Runs concurrent full-TCP enrichment against discovered open ports.
+Each unique IP is scanned only once by the TCP search stage.
 
-`header_grab.go`
+### Packet Discovery Is Separate From Enrichment
 
-Parses HTTP response headers.
+SYN scanning determines port state without completing a TCP connection for every port.
 
-`port_list.go`
+Full TCP connections are reserved for enrichment of open ports.
 
-Contains the built-in TCP port/service mapping.
+### Port Coverage Is User-Controlled
 
-`models/scope.go`
+The default scan covers ports `1-65535`.
 
-Contains shared scan configuration and result structures.
+The `-p` flag allows users to choose a smaller range without introducing separate scanning modes or changing the default behavior.
 
-`output/save.go`
+### Components Have Separate Responsibilities
 
-Generates Markdown scan reports.
+The main controller manages execution order.
 
-## Design
+ICMP, ARP, SYN search, raw packet operations, and enrichment are implemented in separate packages.
 
-The main distinction in `ipspect` is between **discovery** and **enrichment**.
+## Limitations
 
-Discovery is lightweight:
-
-```text
-SYN -> response -> RST
-```
-
-Enrichment is more expensive:
-
-```text
-full TCP connection -> inspect service -> close
-```
-
-A full TCP connection is therefore only made for ports already identified as open.
-
-For HTTP/HTTPS ports, the same enrichment connection is used to retrieve both the HTTP status and response headers.
-
-## Notes
-
-* Raw ICMP and TCP sockets require elevated privileges.
-* SYN scanning currently targets IPv4.
-* CIDR scanning currently supports IPv4.
-* CIDR ranges larger than `/16` are rejected.
-* ICMP response does not determine whether TCP scanning occurs.
-* A silent TCP port is classified as filtered after the SYN timeout.
-* Closed ports are shown individually when `-p` explicitly selects ports.
-* Closed ports are not retained individually during the default full-port scan.
-* Service names come from a built-in common-port mapping and are best-effort.
-* An open service may provide no banner.
-* HTTP headers are collected only for services treated as HTTP/HTTPS.
-* Network latency, packet loss, filtering, and rate limiting can affect scan results.
+- TCP SYN scanning currently supports IPv4.
+- CIDR scanning currently supports IPv4.
+- CIDR ranges larger than `/16` are rejected.
+- ARP discovery only works on directly connected IPv4 networks.
+- Silent ports may be classified as filtered.
+- Service identification uses best-effort port mapping.
+- Some services do not provide readable banners.
+- HTTP probing is based on the identified service type.
+- Network filtering, packet loss, rate limiting, and routing behavior may influence results.
+- Full-range scans of large CIDRs can generate substantial network traffic and require significant time.
 
 ## Legal Notice
 
-Only scan systems and networks that you own or have explicit authorization to test.
+Only scan hosts and networks that you own or have explicit authorization to assess.

@@ -11,21 +11,23 @@ func enrichPort(
 	host := &models.LOOT.Hosts[hostIndex]
 	detail := &host.Details[detailIndex]
 
-	service := lookupService(
+	detail.Service = lookupService(
 		detail.Port,
 	)
 
-	detail.Service = service
-
-	switch service {
-	case "http",
-		"http-proxy",
-		"https":
-
+	switch detail.Port {
+	case 80, 8080:
 		enrichHTTP(
 			host.Target,
 			detail,
-			service,
+			"http",
+		)
+
+	case 443:
+		enrichHTTP(
+			host.Target,
+			detail,
+			"https",
 		)
 
 	default:

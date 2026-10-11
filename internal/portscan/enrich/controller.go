@@ -12,7 +12,11 @@ type enrichJob struct {
 	detailIndex int
 }
 
-func Controller() {
+func Controller() error {
+	if err := loadServices(); err != nil {
+		return err
+	}
+
 	jobs := make(
 		chan enrichJob,
 		enrichWorkers,
@@ -53,4 +57,6 @@ func Controller() {
 	close(jobs)
 
 	wg.Wait()
+
+	return nil
 }

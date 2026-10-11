@@ -187,15 +187,26 @@ func logARP() {
 
 	fmt.Fprintln(
 		w,
-		"IP\tMAC\tINTERFACE",
+		"IP\tMAC\tVENDOR\tPTR\tNETBIOS\tINTERFACE",
 	)
+
+	display := func(value string) string {
+		if value == "" {
+			return "-"
+		}
+
+		return value
+	}
 
 	for _, host := range models.LOOT.ARPResults {
 		fmt.Fprintf(
 			w,
-			"%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s\t%s\n",
 			host.IP,
 			host.MAC,
+			display(host.Vendor),
+			display(host.PTRName),
+			display(host.NetBIOSName),
 			host.Interface,
 		)
 	}

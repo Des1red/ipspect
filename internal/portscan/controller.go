@@ -24,11 +24,9 @@ func Run() {
 	if err := arp.Controller(); err != nil {
 		output.Log(
 			"error",
-			"ARP discovery failed: "+
-				err.Error(),
+			"ARP stage: "+err.Error(),
 		)
 	}
-
 	output.Log("arp", "")
 
 	prioritizeTargets()
@@ -39,7 +37,13 @@ func Run() {
 	output.Log("ports", "")
 
 	if hasOpenPorts() {
-		enrich.Controller()
+		if err := enrich.Controller(); err != nil {
+			output.Log(
+				"error",
+				"service enrichment failed: "+
+					err.Error(),
+			)
+		}
 	}
 
 	output.Log("result", "")

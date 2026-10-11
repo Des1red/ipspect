@@ -57,4 +57,8 @@ type ARPResult struct {
 	MAC       string
 	Vendor    string
 	Interface string
+
+	Hostname    string
+	PTRName     string
+	NetBIOSName string
 }

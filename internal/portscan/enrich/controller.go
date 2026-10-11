@@ -58,13 +58,11 @@ func Controller() error {
 	close(jobs)
 	wg.Wait()
 
-	// Stage 2: Fingerprint protocols.
+	// Stage 2: Actual protocol fingerprinting.
+	// HTTP headers are collected during these probes.
 	fingerprint.Controller()
 
-	// Stage 3: Enrich confirmed HTTP/HTTPS services.
-	enrichConfirmedHTTP()
-
-	// Stage 4: Resolve final service.
+	// Stage 3: Final service resolution.
 	resolveServices()
 
 	return nil

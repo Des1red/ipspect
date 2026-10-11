@@ -41,6 +41,17 @@ type FingerprintResult struct {
 	Product    string
 	Confidence string
 	Evidence   string
+
+	Matches []FingerprintMatch
+}
+
+type FingerprintMatch struct {
+	Service  string
+	Product  string
+	Evidence string
+
+	Banner  string
+	Headers map[string][]string
 }
 
 type HostResult struct {

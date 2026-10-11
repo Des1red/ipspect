@@ -280,7 +280,7 @@ func logFingerprint() {
 
 	fmt.Fprintln(
 		w,
-		"HOST\tPORT\tDETECTED\tCONFIDENCE\tPRODUCT\tEVIDENCE",
+		"HOST\tPORT\tDETECTED\tCONFIDENCE\tPRODUCT\tBANNER\tEVIDENCE",
 	)
 
 	display := func(value string) string {
@@ -299,16 +299,31 @@ func logFingerprint() {
 
 			fp := detail.Fingerprint
 
-			fmt.Fprintf(
-				w,
-				"%s\t%d\t%s\t%s\t%s\t%s\n",
-				host.Target,
-				detail.Port,
-				display(fp.Service),
-				display(fp.Confidence),
-				display(fp.Product),
-				display(fp.Evidence),
-			)
+			if len(fp.Matches) == 0 {
+				fmt.Fprintf(
+					w,
+					"%s\t%d\t-\t-\t-\t-\t%s\n",
+					host.Target,
+					detail.Port,
+					display(fp.Evidence),
+				)
+
+				continue
+			}
+
+			for _, match := range fp.Matches {
+				fmt.Fprintf(
+					w,
+					"%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+					host.Target,
+					detail.Port,
+					match.Service,
+					fp.Confidence,
+					display(match.Product),
+					display(match.Banner),
+					display(match.Evidence),
+				)
+			}
 		}
 	}
 

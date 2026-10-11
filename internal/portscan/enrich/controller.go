@@ -58,12 +58,13 @@ func Controller() error {
 	close(jobs)
 	wg.Wait()
 
-	// Stage 2:
-	// Identify services from actual responses.
+	// Stage 2: Fingerprint protocols.
 	fingerprint.Controller()
 
-	// Stage 3:
-	// Resolve the final service and explanation.
+	// Stage 3: Enrich confirmed HTTP/HTTPS services.
+	enrichConfirmedHTTP()
+
+	// Stage 4: Resolve final service.
 	resolveServices()
 
 	return nil

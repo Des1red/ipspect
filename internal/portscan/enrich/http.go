@@ -7,8 +7,67 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+func enrichConfirmedHTTP() {
+	const workers = 32
+
+	jobs := make(
+		chan enrichJob,
+		workers,
+	)
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			for job := range jobs {
+				host := &models.LOOT.Hosts[job.hostIndex]
+				detail := &host.Details[job.detailIndex]
+
+				enrichHTTP(
+					host.Target,
+					detail,
+					detail.Fingerprint.Service,
+				)
+			}
+		}()
+	}
+
+	for h := range models.LOOT.Hosts {
+		host := &models.LOOT.Hosts[h]
+
+		for i := range host.Details {
+			detail := &host.Details[i]
+
+			if detail.State != "open" ||
+				detail.Fingerprint.Confidence != "high" {
+				continue
+			}
+
+			service := detail.Fingerprint.Service
+
+			if service != "http" &&
+				service != "https" {
+				continue
+			}
+
+			jobs <- enrichJob{
+				hostIndex:   h,
+				detailIndex: i,
+			}
+		}
+	}
+
+	close(jobs)
+	wg.Wait()
+}
 
 func enrichHTTP(
 	ip string,

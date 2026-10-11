@@ -13,27 +13,10 @@ func enrichPort(
 		detail.Port,
 	)
 
-	detail.Service = detail.DBLookup
+	detail.Service = "unknown"
 
-	switch detail.Port {
-	case 80, 8080:
-		enrichHTTP(
-			host.Target,
-			detail,
-			"http",
-		)
-
-	case 443:
-		enrichHTTP(
-			host.Target,
-			detail,
-			"https",
-		)
-
-	default:
-		enrichTCP(
-			host.Target,
-			detail,
-		)
-	}
+	enrichTCP(
+		host.Target,
+		detail,
+	)
 }

@@ -16,14 +16,6 @@ func detectBanner(
 
 	switch {
 	case strings.HasPrefix(upper, "HTTP/"):
-		service := "http"
-
-		// The existing HTTPS enrichment
-		// uses TLS for port 443.
-		if detail.Port == 443 {
-			service = "https"
-		}
-
 		product := ""
 
 		for name, values := range detail.Headers {
@@ -36,10 +28,10 @@ func detectBanner(
 		}
 
 		return models.FingerprintResult{
-			Service:    service,
+			Service:    "http",
 			Product:    product,
 			Confidence: "high",
-			Evidence:   "HTTP response status line",
+			Evidence:   "Plaintext HTTP response status line",
 		}
 
 	case strings.HasPrefix(upper, "SSH-"):

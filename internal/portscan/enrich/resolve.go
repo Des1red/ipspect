@@ -26,6 +26,8 @@ func resolveService(
 ) {
 	fp := detail.Fingerprint
 
+	detail.Service = "unknown"
+
 	if fp.Service != "" &&
 		fp.Confidence == "high" {
 
@@ -40,9 +42,20 @@ func resolveService(
 			return
 		}
 
+		if detail.DBLookup != "" &&
+			detail.DBLookup != "unknown" {
+
+			detail.ServiceReason = fmt.Sprintf(
+				"Fingerprint overrides IANA %q (%s)",
+				detail.DBLookup,
+				fp.Evidence,
+			)
+
+			return
+		}
+
 		detail.ServiceReason = fmt.Sprintf(
-			"Fingerprint overrides IANA %q (%s)",
-			detail.DBLookup,
+			"Fingerprint identified service (%s)",
 			fp.Evidence,
 		)
 
@@ -52,15 +65,14 @@ func resolveService(
 	if detail.DBLookup != "" &&
 		detail.DBLookup != "unknown" {
 
-		detail.Service = detail.DBLookup
-
-		detail.ServiceReason =
-			"IANA fallback; service not fingerprint-verified"
+		detail.ServiceReason = fmt.Sprintf(
+			"IANA suggests %q, but fingerprinting "+
+				"could not confirm the service",
+			detail.DBLookup,
+		)
 
 		return
 	}
-
-	detail.Service = "unknown"
 
 	detail.ServiceReason =
 		"No IANA registration or confirmed fingerprint"

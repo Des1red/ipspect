@@ -30,6 +30,17 @@ type PortDetail struct {
 	Banner  string
 	Headers map[string][]string
 	Latency time.Duration
+
+	DBLookup      string
+	Fingerprint   FingerprintResult
+	ServiceReason string
+}
+
+type FingerprintResult struct {
+	Service    string
+	Product    string
+	Confidence string
+	Evidence   string
 }
 
 type HostResult struct {

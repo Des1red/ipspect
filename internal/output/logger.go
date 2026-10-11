@@ -112,6 +112,12 @@ func logPorts() {
 }
 
 func logResult() {
+	logDBLookup()
+	logFingerprint()
+
+	fmt.Println()
+	fmt.Println(header("Final Result"))
+
 	w := tabwriter.NewWriter(
 		os.Stdout,
 		0,
@@ -147,6 +153,14 @@ func logResult() {
 				detail.Banner,
 				detail.Latency,
 			)
+
+			if detail.ServiceReason != "" {
+				fmt.Fprintf(
+					w,
+					"\t\tReason:\t%s\n",
+					detail.ServiceReason,
+				)
+			}
 
 			printHeaders(
 				w,
@@ -209,6 +223,93 @@ func logARP() {
 			display(host.NetBIOSName),
 			host.Interface,
 		)
+	}
+
+	w.Flush()
+}
+
+func logDBLookup() {
+	fmt.Println()
+	fmt.Println(header("DB Lookup"))
+
+	w := tabwriter.NewWriter(
+		os.Stdout,
+		0,
+		4,
+		2,
+		' ',
+		0,
+	)
+
+	fmt.Fprintln(
+		w,
+		"HOST\tPORT\tIANA SERVICE",
+	)
+
+	for _, host := range models.LOOT.Hosts {
+		for _, detail := range host.Details {
+			if detail.State != "open" {
+				continue
+			}
+
+			fmt.Fprintf(
+				w,
+				"%s\t%d\t%s\n",
+				host.Target,
+				detail.Port,
+				detail.DBLookup,
+			)
+		}
+	}
+
+	w.Flush()
+}
+
+func logFingerprint() {
+	fmt.Println()
+	fmt.Println(header("Fingerprint Lookup"))
+
+	w := tabwriter.NewWriter(
+		os.Stdout,
+		0,
+		4,
+		2,
+		' ',
+		0,
+	)
+
+	fmt.Fprintln(
+		w,
+		"HOST\tPORT\tDETECTED\tCONFIDENCE\tPRODUCT\tEVIDENCE",
+	)
+
+	display := func(value string) string {
+		if value == "" {
+			return "-"
+		}
+
+		return value
+	}
+
+	for _, host := range models.LOOT.Hosts {
+		for _, detail := range host.Details {
+			if detail.State != "open" {
+				continue
+			}
+
+			fp := detail.Fingerprint
+
+			fmt.Fprintf(
+				w,
+				"%s\t%d\t%s\t%s\t%s\t%s\n",
+				host.Target,
+				detail.Port,
+				display(fp.Service),
+				display(fp.Confidence),
+				display(fp.Product),
+				display(fp.Evidence),
+			)
+		}
 	}
 
 	w.Flush()

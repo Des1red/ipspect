@@ -1,8 +1,6 @@
 package enrich
 
-import (
-	"ipspect/internal/models"
-)
+import "ipspect/internal/models"
 
 func enrichPort(
 	hostIndex int,
@@ -11,9 +9,11 @@ func enrichPort(
 	host := &models.LOOT.Hosts[hostIndex]
 	detail := &host.Details[detailIndex]
 
-	detail.Service = lookupService(
+	detail.DBLookup = lookupService(
 		detail.Port,
 	)
+
+	detail.Service = detail.DBLookup
 
 	switch detail.Port {
 	case 80, 8080:

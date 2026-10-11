@@ -2,6 +2,7 @@ package enrich
 
 import (
 	"ipspect/internal/models"
+	"ipspect/internal/portscan/enrich/fingerprint"
 	"sync"
 )
 
@@ -55,8 +56,15 @@ func Controller() error {
 	}
 
 	close(jobs)
-
 	wg.Wait()
+
+	// Stage 2:
+	// Identify services from actual responses.
+	fingerprint.Controller()
+
+	// Stage 3:
+	// Resolve the final service and explanation.
+	resolveServices()
 
 	return nil
 }

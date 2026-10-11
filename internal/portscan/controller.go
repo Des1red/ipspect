@@ -3,72 +3,22 @@ package portscan
 import (
 	"ipspect/internal/models"
 	"ipspect/internal/output"
-	"ipspect/internal/portscan/arp"
-	"ipspect/internal/portscan/enrich"
-	"ipspect/internal/portscan/ping"
-	"ipspect/internal/portscan/search"
-	"sort"
 )
 
 func Run() {
-	if err := ping.Controller(); err != nil {
-		output.Log(
-			"error",
-			"failed to initialize ICMP scanner: "+
-				err.Error(),
-		)
+	stages := newStageCounter()
+
+	if models.ActiveEngines.ICMP {
+		runICMP(stages)
 	}
 
-	output.Log("icmp", "")
-
-	if err := arp.Controller(); err != nil {
-		output.Log(
-			"error",
-			"ARP stage: "+err.Error(),
-		)
-	}
-	output.Log("arp", "")
-
-	prioritizeTargets()
-
-	search.Controller()
-
-	sortPorts()
-	output.Log("ports", "")
-
-	if hasOpenPorts() {
-		if err := enrich.Controller(); err != nil {
-			output.Log(
-				"error",
-				"service enrichment failed: "+
-					err.Error(),
-			)
-		}
+	if models.ActiveEngines.ARP {
+		runARP(stages)
 	}
 
-	output.Log("result", "")
-}
-
-func hasOpenPorts() bool {
-	for _, host := range models.LOOT.Hosts {
-		if len(host.Ports) > 0 {
-			return true
-		}
+	if models.ActiveEngines.TCP {
+		runTCP(stages)
 	}
 
-	return false
-}
-
-func sortPorts() {
-	for i := range models.LOOT.Hosts {
-		host := &models.LOOT.Hosts[i]
-
-		sort.Ints(host.Ports)
-		sort.Ints(host.Closed)
-		sort.Ints(host.Filtered)
-
-		sort.Slice(host.Details, func(i, j int) bool {
-			return host.Details[i].Port < host.Details[j].Port
-		})
-	}
+	output.Log("end", "")
 }

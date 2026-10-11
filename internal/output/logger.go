@@ -3,7 +3,6 @@ package output
 import (
 	"fmt"
 	"ipspect/internal/models"
-	"os"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -19,11 +18,23 @@ func Log(
 	defer logMu.Unlock()
 
 	switch kind {
+	case "stage":
+		beginStage(value)
+
+	case "end":
+		finishStage()
+
 	case "line":
-		fmt.Println(line())
+		fmt.Fprintln(
+			stageOutput,
+			line(),
+		)
 
 	case "header":
-		fmt.Println(header(value))
+		fmt.Fprintln(
+			stageOutput,
+			header(value),
+		)
 
 	case "icmp":
 		logICMP()
@@ -34,16 +45,28 @@ func Log(
 	case "ports":
 		logPorts()
 
+	case "identification":
+		logIdentification()
+
 	case "result":
 		logResult()
 
 	default:
-		fmt.Println(message(kind, value))
+		fmt.Fprintln(
+			stageOutput,
+			message(kind, value),
+		)
 	}
 }
 
+func logIdentification() {
+	logDBLookup()
+	logFingerprint()
+}
+
 func logICMP() {
-	fmt.Println(
+	fmt.Fprintln(
+		stageOutput,
 		message(
 			"icmp",
 			fmt.Sprintf(
@@ -60,12 +83,20 @@ func logICMP() {
 func logPorts() {
 	explicitPorts := len(models.INFO.Ports) > 0
 
-	for _, host := range models.LOOT.Hosts {
-		fmt.Println(
-			message("host", host.Target),
+	for i, host := range models.LOOT.Hosts {
+		if i > 0 {
+			fmt.Fprintln(stageOutput)
+		}
+		fmt.Fprintln(
+			stageOutput,
+			message(
+				"host",
+				host.Target,
+			),
 		)
 
-		fmt.Println(
+		fmt.Fprintln(
+			stageOutput,
 			message(
 				"open",
 				fmt.Sprintf(
@@ -76,7 +107,8 @@ func logPorts() {
 		)
 
 		if explicitPorts {
-			fmt.Println(
+			fmt.Fprintln(
+				stageOutput,
 				message(
 					"closed",
 					fmt.Sprintf(
@@ -86,7 +118,8 @@ func logPorts() {
 				),
 			)
 		} else {
-			fmt.Println(
+			fmt.Fprintln(
+				stageOutput,
 				message(
 					"closed",
 					fmt.Sprintf(
@@ -97,7 +130,8 @@ func logPorts() {
 			)
 		}
 
-		fmt.Println(
+		fmt.Fprintln(
+			stageOutput,
 			message(
 				"filtered",
 				fmt.Sprintf(
@@ -106,74 +140,95 @@ func logPorts() {
 				),
 			),
 		)
-
-		fmt.Println()
 	}
 }
 
 func logResult() {
-	logDBLookup()
-	logFingerprint()
-
-	fmt.Println()
-	fmt.Println(header("Final Result"))
-
-	w := tabwriter.NewWriter(
-		os.Stdout,
-		0,
-		4,
-		2,
-		' ',
-		0,
-	)
-
 	for _, host := range models.LOOT.Hosts {
 		if len(host.Details) == 0 {
 			continue
 		}
 
-		fmt.Fprintf(
-			w,
-			"\nHOST\t%s\n",
-			host.Target,
-		)
-
 		fmt.Fprintln(
-			w,
-			"PORT\tSTATE\tSERVICE\tBANNER\tLATENCY",
+			stageOutput,
+			message(
+				"host",
+				"HOST  "+host.Target,
+			),
 		)
 
-		for _, detail := range host.Details {
-			fmt.Fprintf(
+		// Compact port summary.
+		writeTable(func(w *tabwriter.Writer) {
+			fmt.Fprintln(
 				w,
-				"%d\t%s\t%s\t%s\t%s\n",
-				detail.Port,
-				detail.State,
-				detail.Service,
-				detail.Banner,
-				detail.Latency,
+				"PORT\tSTATE\tSERVICE\tLATENCY",
 			)
 
-			if detail.ServiceReason != "" {
+			for _, detail := range host.Details {
 				fmt.Fprintf(
 					w,
-					"\t\tReason:\t%s\n",
+					"%d\t%s\t%s\t%s\n",
+					detail.Port,
+					detail.State,
+					detail.Service,
+					detail.Latency,
+				)
+			}
+		})
+
+		// Separate detailed information.
+		for _, detail := range host.Details {
+			if detail.Banner == "" &&
+				detail.ServiceReason == "" &&
+				len(detail.Headers) == 0 {
+				continue
+			}
+
+			fmt.Fprintln(stageOutput)
+
+			fmt.Fprintln(
+				stageOutput,
+				header(
+					fmt.Sprintf(
+						"Port %d — Details",
+						detail.Port,
+					),
+				),
+			)
+
+			if detail.Banner != "" {
+				writeResultField(
+					"Banner",
+					detail.Banner,
+				)
+			}
+
+			if detail.ServiceReason != "" {
+				writeResultField(
+					"Reason",
 					detail.ServiceReason,
 				)
 			}
 
-			printHeaders(
-				w,
-				detail.Headers,
-			)
-		}
-	}
+			if len(detail.Headers) > 0 {
+				fmt.Fprintln(
+					stageOutput,
+					"  Headers:",
+				)
 
-	w.Flush()
+				printResultHeaders(
+					detail.Headers,
+				)
+			}
+		}
+
+		fmt.Fprintln(stageOutput)
+	}
 }
 
 func logARP() {
-	fmt.Println(
+	fmt.Fprintln(
+		stageOutput,
 		message(
 			"arp",
 			fmt.Sprintf(
@@ -190,142 +245,123 @@ func logARP() {
 		return
 	}
 
-	w := tabwriter.NewWriter(
-		os.Stdout,
-		0,
-		4,
-		2,
-		' ',
-		0,
-	)
+	writeTable(func(w *tabwriter.Writer) {
+		fmt.Fprintln(
+			w,
+			"IP\tMAC\tVENDOR\tPTR\tNETBIOS\tINTERFACE",
+		)
 
-	fmt.Fprintln(
-		w,
-		"IP\tMAC\tVENDOR\tPTR\tNETBIOS\tINTERFACE",
-	)
+		display := func(value string) string {
+			if value == "" {
+				return "-"
+			}
 
-	display := func(value string) string {
-		if value == "" {
-			return "-"
+			return value
 		}
 
-		return value
-	}
-
-	for _, host := range models.LOOT.ARPResults {
-		fmt.Fprintf(
-			w,
-			"%s\t%s\t%s\t%s\t%s\t%s\n",
-			host.IP,
-			host.MAC,
-			display(host.Vendor),
-			display(host.PTRName),
-			display(host.NetBIOSName),
-			host.Interface,
-		)
-	}
-
-	w.Flush()
+		for _, host := range models.LOOT.ARPResults {
+			fmt.Fprintf(
+				w,
+				"%s\t%s\t%s\t%s\t%s\t%s\n",
+				host.IP,
+				host.MAC,
+				display(host.Vendor),
+				display(host.PTRName),
+				display(host.NetBIOSName),
+				host.Interface,
+			)
+		}
+	})
 }
 
 func logDBLookup() {
-	fmt.Println()
-	fmt.Println(header("DB Lookup"))
-
-	w := tabwriter.NewWriter(
-		os.Stdout,
-		0,
-		4,
-		2,
-		' ',
-		0,
-	)
+	fmt.Fprintln(stageOutput)
 
 	fmt.Fprintln(
-		w,
-		"HOST\tPORT\tIANA SERVICE",
+		stageOutput,
+		header("DB Lookup"),
 	)
 
-	for _, host := range models.LOOT.Hosts {
-		for _, detail := range host.Details {
-			if detail.State != "open" {
-				continue
+	writeTable(func(w *tabwriter.Writer) {
+		fmt.Fprintln(
+			w,
+			"HOST\tPORT\tIANA SERVICE",
+		)
+
+		for _, host := range models.LOOT.Hosts {
+			for _, detail := range host.Details {
+				if detail.State != "open" {
+					continue
+				}
+
+				fmt.Fprintf(
+					w,
+					"%s\t%d\t%s\n",
+					host.Target,
+					detail.Port,
+					detail.DBLookup,
+				)
 			}
-
-			fmt.Fprintf(
-				w,
-				"%s\t%d\t%s\n",
-				host.Target,
-				detail.Port,
-				detail.DBLookup,
-			)
 		}
-	}
-
-	w.Flush()
+	})
 }
 
 func logFingerprint() {
-	fmt.Println()
-	fmt.Println(header("Fingerprint Lookup"))
-
-	w := tabwriter.NewWriter(
-		os.Stdout,
-		0,
-		4,
-		2,
-		' ',
-		0,
-	)
+	fmt.Fprintln(stageOutput)
 
 	fmt.Fprintln(
-		w,
-		"HOST\tPORT\tDETECTED\tCONFIDENCE\tPRODUCT\tBANNER\tEVIDENCE",
+		stageOutput,
+		header("Fingerprint Lookup"),
 	)
 
-	display := func(value string) string {
-		if value == "" {
-			return "-"
+	writeTable(func(w *tabwriter.Writer) {
+		fmt.Fprintln(
+			w,
+			"HOST\tPORT\tDETECTED\tCONFIDENCE\tPRODUCT\tBANNER\tEVIDENCE",
+		)
+
+		display := func(value string) string {
+			if value == "" {
+				return "-"
+			}
+
+			return value
 		}
 
-		return value
-	}
+		for _, host := range models.LOOT.Hosts {
+			for _, detail := range host.Details {
+				if detail.State != "open" {
+					continue
+				}
 
-	for _, host := range models.LOOT.Hosts {
-		for _, detail := range host.Details {
-			if detail.State != "open" {
-				continue
-			}
+				fp := detail.Fingerprint
 
-			fp := detail.Fingerprint
+				if len(fp.Matches) == 0 {
+					fmt.Fprintf(
+						w,
+						"%s\t%d\t-\t-\t-\t-\t%s\n",
+						host.Target,
+						detail.Port,
+						display(fp.Evidence),
+					)
 
-			if len(fp.Matches) == 0 {
-				fmt.Fprintf(
-					w,
-					"%s\t%d\t-\t-\t-\t-\t%s\n",
-					host.Target,
-					detail.Port,
-					display(fp.Evidence),
-				)
+					continue
+				}
 
-				continue
-			}
-
-			for _, match := range fp.Matches {
-				fmt.Fprintf(
-					w,
-					"%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
-					host.Target,
-					detail.Port,
-					match.Service,
-					fp.Confidence,
-					display(match.Product),
-					display(match.Banner),
-					display(match.Evidence),
-				)
+				for _, match := range fp.Matches {
+					fmt.Fprintf(
+						w,
+						"%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+						host.Target,
+						detail.Port,
+						match.Service,
+						fp.Confidence,
+						display(match.Product),
+						display(match.Banner),
+						display(match.Evidence),
+					)
+				}
 			}
 		}
-	}
-
-	w.Flush()
+	})
 }

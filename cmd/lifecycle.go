@@ -4,12 +4,19 @@ import (
 	"fmt"
 	"ipspect/internal"
 	"ipspect/internal/bootstrap"
+	"ipspect/internal/models"
 	"ipspect/internal/output"
 	"ipspect/internal/portscan"
 	"os"
 )
 
-var saveResults bool
+var (
+	saveResults bool
+
+	flagICMP bool
+	flagARP  bool
+	flagTCP  bool
+)
 
 func flagcheck() {
 	internal.SetDefaultPorts()
@@ -41,6 +48,15 @@ func flagcheck() {
 				os.Exit(1)
 			}
 
+		case "-icmp":
+			flagICMP = true
+
+		case "-arp":
+			flagARP = true
+
+		case "-tcp":
+			flagTCP = true
+
 		case "install":
 			bootstrap.Install()
 			os.Exit(0)
@@ -66,12 +82,36 @@ func flagcheck() {
 }
 
 func scan() {
+	activateEngines()
+
 	internal.Target()
 
 	portscan.Run()
 }
+
+func activateEngines() {
+	// No engine flags specified:
+	// enable all engines by default.
+	if !flagICMP &&
+		!flagARP &&
+		!flagTCP {
+
+		models.ActiveEngines.ICMP = true
+		models.ActiveEngines.ARP = true
+		models.ActiveEngines.TCP = true
+
+		return
+	}
+
+	// Enable only explicitly requested engines.
+	models.ActiveEngines.ICMP = flagICMP
+	models.ActiveEngines.ARP = flagARP
+	models.ActiveEngines.TCP = flagTCP
+}
+
 func save() {
 	filename, err := output.Save()
+
 	if err != nil {
 		fmt.Println(
 			"failed to save results:",

@@ -50,6 +50,10 @@ func Reset() {
 		TCP,
 		DNS,
 		NetBIOS,
+		TCPConnect,
+		HTTP,
+		HTTPS,
+		DNSTCP,
 	} {
 		state := stateFor(protocol)
 

@@ -77,5 +77,7 @@ func Print() {
 
 	if printed {
 		output.Log("end", "")
+
+		printHealth()
 	}
 }

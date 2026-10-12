@@ -7,6 +7,7 @@ import (
 	"ipspect/internal/models"
 	"ipspect/internal/output"
 	"ipspect/internal/portscan"
+	"ipspect/internal/time"
 	"os"
 )
 
@@ -87,6 +88,8 @@ func scan() {
 	internal.Target()
 
 	portscan.Run()
+
+	time.PrintTimes()
 }
 
 func activateEngines() {

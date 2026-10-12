@@ -3,6 +3,7 @@ package enrich
 import (
 	"ipspect/internal/models"
 	"ipspect/internal/portscan/enrich/fingerprint"
+	scantime "ipspect/internal/time"
 	"sync"
 )
 
@@ -14,7 +15,10 @@ type enrichJob struct {
 }
 
 func Controller() error {
+	enrichTimer := scantime.New("TCP Enrichment")
+
 	if err := loadServices(); err != nil {
+		enrichTimer.Stop()
 		return err
 	}
 
@@ -58,12 +62,22 @@ func Controller() error {
 	close(jobs)
 	wg.Wait()
 
+	enrichTimer.Stop()
+
 	// Stage 2: Actual protocol fingerprinting.
 	// HTTP headers are collected during these probes.
+	fingerprintTimer := scantime.New("Protocol Fingerprinting")
+
 	fingerprint.Controller()
 
+	fingerprintTimer.Stop()
+
 	// Stage 3: Final service resolution.
+	resolutionTimer := scantime.New("Service Resolution")
+
 	resolveServices()
+
+	resolutionTimer.Stop()
 
 	return nil
 }

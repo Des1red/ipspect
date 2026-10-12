@@ -3,22 +3,39 @@ package portscan
 import (
 	"ipspect/internal/models"
 	"ipspect/internal/output"
+	scantime "ipspect/internal/time"
 )
 
 func Run() {
 	stages := newStageCounter()
 
 	if models.ActiveEngines.ICMP {
-		runICMP(stages)
+		runTimed("ICMP Discovery", func() {
+			runICMP(stages)
+		})
 	}
 
 	if models.ActiveEngines.ARP {
-		runARP(stages)
+		runTimed("ARP Discovery", func() {
+			runARP(stages)
+		})
 	}
 
 	if models.ActiveEngines.TCP {
-		runTCP(stages)
+		runTimed("TCP Scanning", func() {
+			runTCP(stages)
+		})
 	}
 
 	output.Log("end", "")
+}
+
+func runTimed(
+	name string,
+	run func(),
+) {
+	timer := scantime.New(name)
+	defer timer.Stop()
+
+	run()
 }

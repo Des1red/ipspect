@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ipspect/internal/models"
 	arpenrich "ipspect/internal/portscan/arp/enrich"
+	scantime "ipspect/internal/time"
 )
 
 func Controller() error {
@@ -14,11 +15,14 @@ func Controller() error {
 		return nil
 	}
 
+	scanTimer := scantime.New("ARP Scanning")
+
 	groups, err := localInterfaces(
 		models.INFO.Targets,
 	)
 
 	if err != nil {
+		scanTimer.Stop()
 		return err
 	}
 
@@ -48,6 +52,12 @@ func Controller() error {
 
 	storeResults(found)
 
+	scanTimer.Stop()
+
+	enrichTimer := scantime.New(
+		"ARP Device Enrichment",
+	)
+
 	if err := arpenrich.Controller(
 		models.LOOT.ARPResults,
 	); err != nil && firstErr == nil {
@@ -56,6 +66,8 @@ func Controller() error {
 			err,
 		)
 	}
+
+	enrichTimer.Stop()
 
 	return firstErr
 }

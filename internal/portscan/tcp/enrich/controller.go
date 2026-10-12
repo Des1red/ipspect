@@ -2,7 +2,7 @@ package enrich
 
 import (
 	"ipspect/internal/models"
-	"ipspect/internal/portscan/enrich/fingerprint"
+	"ipspect/internal/portscan/tcp/enrich/fingerprint"
 	scantime "ipspect/internal/time"
 	"sync"
 )

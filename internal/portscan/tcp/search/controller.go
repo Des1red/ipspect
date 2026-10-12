@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"ipspect/internal/models"
 	"ipspect/internal/output"
-	synprobe "ipspect/internal/portscan/probe"
+	synprobe "ipspect/internal/portscan/tcp/probe"
 	"os"
 )
 

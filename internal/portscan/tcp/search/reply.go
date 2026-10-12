@@ -1,7 +1,7 @@
 package search
 
 import (
-	synprobe "ipspect/internal/portscan/probe"
+	synprobe "ipspect/internal/portscan/tcp/probe"
 )
 
 func (s *scanState) handleReply(

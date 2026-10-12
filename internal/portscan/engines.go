@@ -4,9 +4,9 @@ import (
 	"ipspect/internal/models"
 	"ipspect/internal/output"
 	"ipspect/internal/portscan/arp"
-	"ipspect/internal/portscan/enrich"
 	"ipspect/internal/portscan/ping"
-	"ipspect/internal/portscan/search"
+	"ipspect/internal/portscan/tcp/enrich"
+	"ipspect/internal/portscan/tcp/search"
 	"sort"
 )
 

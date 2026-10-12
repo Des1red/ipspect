@@ -36,8 +36,9 @@ func scan() {
 	internal.Target()
 
 	portscan.Run()
-
-	statistics()
+	if verbose {
+		statistics()
+	}
 }
 
 func statistics() {

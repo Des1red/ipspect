@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"ipspect/internal"
 	"ipspect/internal/bootstrap"
@@ -37,12 +38,12 @@ port scanning with service fingerprinting and enrichment.`
 			"remove the installed binary",
 		),
 		clihelp.F(
-			"help",
+			"help, --help",
 			"",
 			"show this help message",
 		),
 		clihelp.F(
-			"version",
+			"version, --version",
 			"",
 			"show version",
 		),
@@ -53,34 +54,34 @@ port scanning with service fingerprinting and enrichment.`
 	fmt.Println("Flags:")
 	clihelp.Print(
 		clihelp.F(
-			"-s",
+			"-s, --save",
 			"",
 			"save scan results as Markdown",
 		),
 		clihelp.F(
-			"-p",
-			"<port>",
-			"scan a single TCP port",
-		),
-		clihelp.F(
-			"-p",
+			"-p, --ports",
 			"<ports>",
 			"scan TCP ports, lists, and ranges",
 		),
 		clihelp.F(
-			"-icmp",
+			"-icmp, --icmp",
 			"",
 			"enable ICMP echo discovery",
 		),
 		clihelp.F(
-			"-arp",
+			"-arp, --arp",
 			"",
 			"enable ARP discovery on local networks",
 		),
 		clihelp.F(
-			"-tcp",
+			"-tcp, --tcp",
 			"",
 			"enable TCP SYN scanning and service identification",
+		),
+		clihelp.F(
+			"-v, --verbose",
+			"",
+			"enable verbose output",
 		),
 	)
 
@@ -99,6 +100,9 @@ port scanning with service fingerprinting and enrichment.`
 	fmt.Println(
 		"  Multiple engine flags can be combined in any order.",
 	)
+	fmt.Println(
+		"  Port selection requires TCP to be enabled.",
+	)
 	fmt.Println()
 
 	clihelp.Print(
@@ -108,34 +112,39 @@ port scanning with service fingerprinting and enrichment.`
 			"run ICMP, ARP, and TCP",
 		),
 		clihelp.F(
-			"ipspect -icmp",
+			"ipspect --icmp",
 			"",
 			"run only ICMP discovery",
 		),
 		clihelp.F(
-			"ipspect -arp",
+			"ipspect --arp",
 			"",
 			"run only ARP discovery",
 		),
 		clihelp.F(
-			"ipspect -tcp",
+			"ipspect --tcp",
 			"",
 			"run only TCP scanning and enrichment",
 		),
 		clihelp.F(
-			"ipspect -icmp -arp",
+			"ipspect --icmp --arp",
 			"",
 			"run ICMP and ARP discovery",
 		),
 		clihelp.F(
-			"ipspect -arp -tcp",
+			"ipspect --arp --tcp",
 			"",
 			"run ARP discovery and TCP scanning",
 		),
 		clihelp.F(
-			"ipspect -tcp -p 80,443",
+			"ipspect --tcp --ports 80,443",
 			"",
 			"run TCP scanning on selected ports",
+		),
+		clihelp.F(
+			"ipspect -p 22",
+			"",
+			"run all default engines, scanning TCP port 22",
 		),
 	)
 
@@ -190,11 +199,47 @@ func version() {
 
 var (
 	saveResults bool
+	verbose     bool
 
 	flagICMP bool
 	flagARP  bool
 	flagTCP  bool
 )
+
+func flagError(
+	message string,
+) {
+	fmt.Fprintln(
+		os.Stderr,
+		"ipspect:", message,
+	)
+
+	os.Exit(1)
+}
+
+func validateFlags(
+	portsSpecified bool,
+) error {
+	engineSelected :=
+		flagICMP ||
+			flagARP ||
+			flagTCP
+
+	// When no engine is explicitly selected,
+	// all three engines run by default.
+	tcpEnabled :=
+		!engineSelected ||
+			flagTCP
+
+	if portsSpecified && !tcpEnabled {
+		return fmt.Errorf(
+			"-p/--ports requires TCP scanning; " +
+				"enable -tcp/--tcp or omit engine flags",
+		)
+	}
+
+	return nil
+}
 
 func flagcheck() {
 	internal.SetDefaultPorts()
@@ -203,58 +248,111 @@ func flagcheck() {
 		return
 	}
 
+	portsSpecified := false
+
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
 
 		switch arg {
-		case "-s":
+		case "-s", "--s", "--save":
 			saveResults = true
 
-		case "-p":
-			if i+1 >= len(os.Args) {
-				fmt.Println("-p requires a port or port range")
-				fmt.Println("examples:")
-				fmt.Println("  -p 22")
-				fmt.Println("  -p 1-22")
-				os.Exit(1)
+		case "-v", "--v", "--verbose":
+			verbose = true
+
+		case "-p", "--p", "--ports":
+			if portsSpecified {
+				flagError(
+					"port selection may only be specified once",
+				)
+			}
+
+			if i+1 >= len(os.Args) ||
+				strings.HasPrefix(
+					os.Args[i+1],
+					"-",
+				) {
+
+				flagError(
+					"-p/--ports requires a port specification " +
+						"(examples: 23, 1-1000, 22,80,443)",
+				)
 			}
 
 			i++
 
-			if err := internal.SetPorts(os.Args[i]); err != nil {
-				fmt.Println("invalid port range:", err)
-				os.Exit(1)
+			if err := internal.SetPorts(
+				os.Args[i],
+			); err != nil {
+				flagError(
+					fmt.Sprintf(
+						"invalid port specification: %v",
+						err,
+					),
+				)
 			}
 
-		case "-icmp":
+			portsSpecified = true
+
+		case "-icmp", "--icmp":
 			flagICMP = true
 
-		case "-arp":
+		case "-arp", "--arp":
 			flagARP = true
 
-		case "-tcp":
+		case "-tcp", "--tcp":
 			flagTCP = true
 
-		case "install":
+		case "install", "--install":
+			if len(os.Args) != 2 {
+				flagError(
+					"install cannot be combined with other arguments",
+				)
+			}
+
 			bootstrap.Install()
 			os.Exit(0)
 
-		case "uninstall":
+		case "uninstall", "--uninstall":
+			if len(os.Args) != 2 {
+				flagError(
+					"uninstall cannot be combined with other arguments",
+				)
+			}
+
 			bootstrap.Uninstall()
 			os.Exit(0)
 
-		case "help":
+		case "help", "-h", "--help":
+			if len(os.Args) != 2 {
+				flagError(
+					"help cannot be combined with other arguments",
+				)
+			}
+
 			help()
 			os.Exit(0)
 
-		case "version":
+		case "version", "--version":
+			if len(os.Args) != 2 {
+				flagError(
+					"version cannot be combined with other arguments",
+				)
+			}
+
 			version()
 			os.Exit(0)
 
 		default:
-			fmt.Println("unknown argument:", arg)
-			help()
-			os.Exit(1)
+			flagError(
+				"unknown argument: " + arg,
+			)
 		}
+	}
+
+	if err := validateFlags(
+		portsSpecified,
+	); err != nil {
+		flagError(err.Error())
 	}
 }

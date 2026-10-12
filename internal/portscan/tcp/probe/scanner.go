@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"golang.org/x/net/ipv4"
 )
@@ -15,6 +16,8 @@ type Reply struct {
 	seq     uint32
 	Ack     uint32
 	Flags   byte
+
+	ReceivedAt time.Time
 }
 
 type SYNScanner struct {

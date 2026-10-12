@@ -1,6 +1,7 @@
 package search
 
 import (
+	"ipspect/internal/network/app"
 	synprobe "ipspect/internal/portscan/tcp/probe"
 )
 
@@ -33,6 +34,13 @@ func (s *scanState) handleReply(
 			return
 		}
 
+		app.Receive(
+			app.TCP,
+			reply.ReceivedAt.Sub(
+				pending.sentAt,
+			),
+		)
+
 		recordPortState(
 			pending.job.hostIndex,
 			pending.job.port,
@@ -60,6 +68,13 @@ func (s *scanState) handleReply(
 
 			return
 		}
+
+		app.Receive(
+			app.TCP,
+			reply.ReceivedAt.Sub(
+				pending.sentAt,
+			),
+		)
 
 		recordPortState(
 			pending.job.hostIndex,

@@ -5,8 +5,10 @@ package arp
 import (
 	"bytes"
 	"encoding/binary"
+	"ipspect/internal/network/app"
 	"net"
 	"syscall"
+	"time"
 )
 
 func parseReply(
@@ -105,11 +107,19 @@ func (s *scanner) receiveLoop() {
 
 		key := ip.String()
 
-		if _, known := s.expected[key]; !known {
+		s.mu.Lock()
+
+		start, expected := s.expected[key]
+
+		if !expected {
+			s.mu.Unlock()
 			continue
 		}
 
-		s.mu.Lock()
+		if _, exists := s.found[key]; exists {
+			s.mu.Unlock()
+			continue
+		}
 
 		s.found[key] = arpHost{
 			ip: append(
@@ -125,7 +135,14 @@ func (s *scanner) receiveLoop() {
 			iface: s.group.iface.Name,
 		}
 
+		rtt := time.Since(start)
+
 		s.mu.Unlock()
+
+		app.Receive(
+			app.ARP,
+			rtt,
+		)
 	}
 }
 

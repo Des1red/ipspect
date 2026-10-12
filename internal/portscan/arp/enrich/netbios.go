@@ -3,6 +3,8 @@ package enrich
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
+	"ipspect/internal/network/app"
 	"net"
 	"strings"
 	"time"
@@ -44,24 +46,46 @@ func lookupNetBIOS(ip string) string {
 		return ""
 	}
 
+	start := time.Now()
+
 	if _, err = conn.Write(query); err != nil {
 		return ""
 	}
+
+	app.Send(app.NetBIOS)
 
 	buf := make([]byte, 1500)
 
 	n, err := conn.Read(buf)
 
 	if err != nil {
+		var netErr net.Error
+
+		if errors.As(err, &netErr) &&
+			netErr.Timeout() {
+
+			app.Timeout(app.NetBIOS)
+		}
+
 		return ""
 	}
 
-	return parseNodeStatus(
+	name := parseNodeStatus(
 		buf[:n],
 		id,
 	)
-}
 
+	if name == "" {
+		return ""
+	}
+
+	app.Receive(
+		app.NetBIOS,
+		time.Since(start),
+	)
+
+	return name
+}
 func buildNodeStatusRequest() ([]byte, uint16, error) {
 	var tx [2]byte
 

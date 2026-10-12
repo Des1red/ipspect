@@ -16,6 +16,8 @@ const (
 type icmpReply struct {
 	ip  net.IP
 	seq int
+
+	receivedAt time.Time
 }
 
 type icmpProbe struct {
@@ -25,6 +27,7 @@ type icmpProbe struct {
 
 	attempts int
 
+	sentAt   time.Time
 	deadline time.Time
 }
 

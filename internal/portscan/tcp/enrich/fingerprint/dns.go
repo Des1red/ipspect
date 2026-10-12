@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"ipspect/internal/models"
+	"ipspect/internal/network/app"
 	"net"
 	"strconv"
 	"time"
@@ -70,6 +71,10 @@ func probeDNS(
 		strconv.Itoa(port),
 	)
 
+	connectStart := time.Now()
+
+	app.Send(app.TCPConnect)
+
 	conn, err := net.DialTimeout(
 		"tcp",
 		address,
@@ -77,8 +82,18 @@ func probeDNS(
 	)
 
 	if err != nil {
+		app.TimeoutOnError(
+			app.TCPConnect,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
+
+	app.Receive(
+		app.TCPConnect,
+		time.Since(connectStart),
+	)
 
 	defer conn.Close()
 
@@ -88,9 +103,18 @@ func probeDNS(
 		return models.FingerprintMatch{}
 	}
 
+	requestStart := time.Now()
+
 	if _, err = conn.Write(frame); err != nil {
+		app.TimeoutOnError(
+			app.DNSTCP,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
+
+	app.Send(app.DNSTCP)
 
 	var size [2]byte
 
@@ -98,6 +122,11 @@ func probeDNS(
 		conn,
 		size[:],
 	); err != nil {
+		app.TimeoutOnError(
+			app.DNSTCP,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
 
@@ -117,6 +146,11 @@ func probeDNS(
 		conn,
 		response,
 	); err != nil {
+		app.TimeoutOnError(
+			app.DNSTCP,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
 
@@ -171,6 +205,11 @@ func probeDNS(
 	if rcode < len(names) {
 		label = names[rcode]
 	}
+
+	app.Receive(
+		app.DNSTCP,
+		time.Since(requestStart),
+	)
 
 	return models.FingerprintMatch{
 		Service: "dns",

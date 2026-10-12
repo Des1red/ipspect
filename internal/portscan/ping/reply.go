@@ -1,6 +1,9 @@
 package ping
 
-import "net"
+import (
+	"ipspect/internal/network/app"
+	"net"
+)
 
 func (s *scanState) handleReply(
 	reply icmpReply,
@@ -13,6 +16,15 @@ func (s *scanState) handleReply(
 
 	if !pending.ip.Equal(reply.ip) {
 		return
+	}
+
+	if !pending.sentAt.IsZero() {
+		app.Receive(
+			app.ICMP,
+			reply.receivedAt.Sub(
+				pending.sentAt,
+			),
+		)
 	}
 
 	key := pending.ip.String()

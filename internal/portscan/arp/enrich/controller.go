@@ -2,6 +2,7 @@ package enrich
 
 import (
 	"ipspect/internal/models"
+	"ipspect/internal/network/app"
 	"sync"
 )
 
@@ -13,6 +14,12 @@ func Controller(hosts []models.ARPResult) error {
 	}
 
 	vendorErr := loadIEEE()
+
+	app.Start(app.DNS)
+	app.Start(app.NetBIOS)
+
+	defer app.Stop(app.DNS)
+	defer app.Stop(app.NetBIOS)
 
 	jobs := make(chan int)
 

@@ -3,6 +3,7 @@ package ping
 import (
 	"errors"
 	"net"
+	"time"
 
 	"golang.org/x/net/icmp"
 )
@@ -31,6 +32,8 @@ func (s *icmpScanner) readLoop(
 
 			return
 		}
+
+		receivedAt := time.Now()
 
 		peerIP, ok :=
 			peer.(*net.IPAddr)
@@ -71,6 +74,8 @@ func (s *icmpScanner) readLoop(
 			),
 
 			seq: echo.Seq,
+
+			receivedAt: receivedAt,
 		}
 	}
 }

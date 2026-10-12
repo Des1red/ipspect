@@ -41,5 +41,7 @@ func scanInterface(
 
 	scanner.close()
 
+	scanner.recordTimeouts()
+
 	return scanner.results(), nil
 }

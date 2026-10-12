@@ -3,6 +3,7 @@ package enrich
 import (
 	"bufio"
 	"ipspect/internal/models"
+	"ipspect/internal/network/app"
 	"net"
 	"strconv"
 	"strings"
@@ -20,18 +21,28 @@ func enrichTCP(
 
 	start := time.Now()
 
+	app.Send(app.TCPConnect)
+
 	conn, err := net.DialTimeout(
 		"tcp",
 		address,
 		500*time.Millisecond,
 	)
 
-	detail.Latency =
-		time.Since(start)
+	detail.Latency = time.Since(start)
 
 	if err != nil {
+		app.TimeoutOnError(
+			app.TCPConnect,
+			err,
+		)
 		return
 	}
+
+	app.Receive(
+		app.TCPConnect,
+		detail.Latency,
+	)
 
 	defer conn.Close()
 
@@ -41,14 +52,9 @@ func enrichTCP(
 		),
 	)
 
-	reader := bufio.NewReader(
-		conn,
-	)
+	reader := bufio.NewReader(conn)
 
-	line, _ := reader.ReadString(
-		'\n',
-	)
+	line, _ := reader.ReadString('\n')
 
-	detail.Banner =
-		strings.TrimSpace(line)
+	detail.Banner = strings.TrimSpace(line)
 }

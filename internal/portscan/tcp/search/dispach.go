@@ -66,6 +66,7 @@ func (s *scanState) dispatch() error {
 			),
 		}
 
+		sentAt := time.Now()
 		err = s.scanner.SendSYN(
 			srcIP,
 			job.ip,
@@ -83,6 +84,8 @@ func (s *scanState) dispatch() error {
 
 			continue
 		}
+
+		pending.sentAt = sentAt
 
 		s.pending[srcPort] =
 			pending

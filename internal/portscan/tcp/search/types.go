@@ -22,6 +22,7 @@ type pendingProbe struct {
 	srcIP    net.IP
 	srcPort  uint16
 	seq      uint32
+	sentAt   time.Time
 	deadline time.Time
 }
 

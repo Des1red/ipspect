@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"ipspect/internal/models"
+	"ipspect/internal/network/app"
 	"net"
 	"net/http"
 	"strconv"
@@ -29,8 +30,18 @@ func probeHTTP(
 		Timeout: probeTimeout,
 	}
 
+	protocol := app.HTTP
+
+	if secure {
+		protocol = app.HTTPS
+	}
+
 	var conn net.Conn
 	var err error
+
+	connectStart := time.Now()
+
+	app.Send(app.TCPConnect)
 
 	if secure {
 		conn, err = tls.DialWithDialer(
@@ -49,8 +60,18 @@ func probeHTTP(
 	}
 
 	if err != nil {
+		app.TimeoutOnError(
+			app.TCPConnect,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
+
+	app.Receive(
+		app.TCPConnect,
+		time.Since(connectStart),
+	)
 
 	defer conn.Close()
 
@@ -59,6 +80,8 @@ func probeHTTP(
 	); err != nil {
 		return models.FingerprintMatch{}
 	}
+
+	requestStart := time.Now()
 
 	_, err = fmt.Fprintf(
 		conn,
@@ -71,8 +94,15 @@ func probeHTTP(
 	)
 
 	if err != nil {
+		app.TimeoutOnError(
+			protocol,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
+
+	app.Send(protocol)
 
 	reader := bufio.NewReader(
 		io.LimitReader(
@@ -89,8 +119,18 @@ func probeHTTP(
 	)
 
 	if err != nil {
+		app.TimeoutOnError(
+			protocol,
+			err,
+		)
+
 		return models.FingerprintMatch{}
 	}
+
+	app.Receive(
+		protocol,
+		time.Since(requestStart),
+	)
 
 	defer resp.Body.Close()
 

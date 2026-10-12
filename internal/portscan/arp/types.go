@@ -29,7 +29,7 @@ type scanner struct {
 
 	group interfaceGroup
 
-	expected map[string]struct{}
+	expected map[string]time.Time
 	found    map[string]arpHost
 
 	mu sync.Mutex

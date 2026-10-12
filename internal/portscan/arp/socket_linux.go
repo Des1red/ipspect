@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"syscall"
+	"time"
 )
 
 func networkOrder(
@@ -85,7 +86,7 @@ func openScanner(
 		group: group,
 
 		expected: make(
-			map[string]struct{},
+			map[string]time.Time,
 			len(group.targets),
 		),
 
@@ -96,11 +97,6 @@ func openScanner(
 		done: make(
 			chan struct{},
 		),
-	}
-
-	for _, ip := range group.targets {
-		s.expected[ip.String()] =
-			struct{}{}
 	}
 
 	s.wg.Add(1)

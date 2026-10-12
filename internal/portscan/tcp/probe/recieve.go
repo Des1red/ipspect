@@ -3,6 +3,7 @@ package probe
 import (
 	"encoding/binary"
 	"net"
+	"time"
 )
 
 func (s *SYNScanner) readLoop() {
@@ -23,6 +24,7 @@ func (s *SYNScanner) readLoop() {
 
 			return
 		}
+		receivedAt := time.Now()
 
 		if header == nil ||
 			header.Protocol != 6 ||
@@ -54,6 +56,8 @@ func (s *SYNScanner) readLoop() {
 			),
 
 			Flags: payload[13],
+
+			ReceivedAt: receivedAt,
 		}
 
 		select {

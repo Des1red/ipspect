@@ -1,6 +1,9 @@
 package search
 
-import "time"
+import (
+	"ipspect/internal/network/app"
+	"time"
+)
 
 func (s *scanState) expireProbes(
 	now time.Time,
@@ -11,6 +14,8 @@ func (s *scanState) expireProbes(
 		) {
 			continue
 		}
+
+		app.Timeout(app.TCP)
 
 		recordPortState(
 			pending.job.hostIndex,

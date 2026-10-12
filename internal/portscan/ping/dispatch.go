@@ -38,6 +38,8 @@ func (s *scanState) dispatch() {
 			),
 		}
 
+		sentAt := time.Now()
+
 		err := s.scanner.send(
 			pending.ip,
 			pending.seq,
@@ -51,6 +53,8 @@ func (s *scanState) dispatch() {
 
 			continue
 		}
+
+		pending.sentAt = sentAt
 
 		s.pending[seq] = pending
 	}

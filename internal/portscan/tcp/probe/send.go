@@ -2,6 +2,7 @@ package probe
 
 import (
 	"fmt"
+	"ipspect/internal/network/app"
 	"net"
 
 	"golang.org/x/net/ipv4"
@@ -24,11 +25,17 @@ func (s *SYNScanner) SendSYN(
 		FlagSYN,
 	)
 
-	return s.sendSegment(
+	if err := s.sendSegment(
 		srcIP,
 		dstIP,
 		segment,
-	)
+	); err != nil {
+		return err
+	}
+
+	app.Send(app.TCP)
+
+	return nil
 }
 
 func (s *SYNScanner) SendRST(

@@ -48,6 +48,8 @@ func Reset() {
 		ICMP,
 		ARP,
 		TCP,
+		DNS,
+		NetBIOS,
 	} {
 		state := stateFor(protocol)
 

@@ -2,6 +2,7 @@ package ping
 
 import (
 	"fmt"
+	"ipspect/internal/network/app"
 	"net"
 
 	"golang.org/x/net/icmp"
@@ -58,5 +59,11 @@ func (s *icmpScanner) send(
 		},
 	)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	app.Send(app.ICMP)
+
+	return nil
 }

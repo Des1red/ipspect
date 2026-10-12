@@ -8,9 +8,15 @@ import (
 type Protocol string
 
 const (
-	ICMP Protocol = "icmp"
-	ARP  Protocol = "arp"
-	TCP  Protocol = "tcp"
+	ICMP       Protocol = "icmp"
+	ARP        Protocol = "arp"
+	DNS        Protocol = "dns"
+	NetBIOS    Protocol = "netbios"
+	TCP        Protocol = "tcp"
+	TCPConnect Protocol = "tcp-connect"
+	HTTP       Protocol = "http"
+	HTTPS      Protocol = "https"
+	DNSTCP     Protocol = "dns-tcp"
 )
 
 type RTTStats struct {
@@ -30,11 +36,16 @@ type ProtocolStats struct {
 }
 
 type NetworkStats struct {
-	ICMP ProtocolStats
-	ARP  ProtocolStats
-	TCP  ProtocolStats
+	ICMP       ProtocolStats
+	ARP        ProtocolStats
+	DNS        ProtocolStats
+	NetBIOS    ProtocolStats
+	TCP        ProtocolStats
+	TCPConnect ProtocolStats
+	HTTP       ProtocolStats
+	HTTPS      ProtocolStats
+	DNSTCP     ProtocolStats
 }
-
 type protocolState struct {
 	mu sync.Mutex
 
@@ -48,9 +59,15 @@ type protocolState struct {
 }
 
 var (
-	icmpState protocolState
-	arpState  protocolState
-	tcpState  protocolState
+	icmpState       protocolState
+	arpState        protocolState
+	dnsState        protocolState
+	netbiosState    protocolState
+	tcpState        protocolState
+	tcpConnectState protocolState
+	httpState       protocolState
+	httpsState      protocolState
+	dnsTCPState     protocolState
 )
 
 func stateFor(
@@ -63,8 +80,26 @@ func stateFor(
 	case ARP:
 		return &arpState
 
+	case DNS:
+		return &dnsState
+
+	case NetBIOS:
+		return &netbiosState
+
 	case TCP:
 		return &tcpState
+
+	case TCPConnect:
+		return &tcpConnectState
+
+	case HTTP:
+		return &httpState
+
+	case HTTPS:
+		return &httpsState
+
+	case DNSTCP:
+		return &dnsTCPState
 
 	default:
 		return nil

@@ -2,6 +2,7 @@ package enrich
 
 import (
 	"ipspect/internal/models"
+	"ipspect/internal/network/app"
 	"ipspect/internal/portscan/tcp/enrich/fingerprint"
 	scantime "ipspect/internal/time"
 	"sync"
@@ -20,6 +21,15 @@ func Controller() error {
 	if err := loadServices(); err != nil {
 		enrichTimer.Stop()
 		return err
+	}
+	for _, protocol := range []app.Protocol{
+		app.TCPConnect,
+		app.HTTP,
+		app.HTTPS,
+		app.DNSTCP,
+	} {
+		app.Start(protocol)
+		defer app.Stop(protocol)
 	}
 
 	jobs := make(

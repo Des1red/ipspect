@@ -15,6 +15,12 @@ func Print() {
 		ICMP,
 		ARP,
 		TCP,
+		DNS,
+		NetBIOS,
+		TCPConnect,
+		HTTP,
+		HTTPS,
+		DNSTCP,
 	} {
 		stats, active, hasRTT := snapshotAt(
 			protocol,
@@ -44,10 +50,17 @@ func Print() {
 			maxRTT = stats.RTT.Maximum.String()
 		}
 
+		unit := "pkt/s"
+
+		switch protocol {
+		case DNS, TCPConnect, HTTP, HTTPS, DNSTCP:
+			unit = "op/s"
+		}
+
 		output.Log(
 			"text",
 			fmt.Sprintf(
-				"%-5s  Sent: %-7d Received: %-7d Dropped: %-6d TimedOut: %-6d RTT: %s / %s / %s  Rate: %.2f pkt/s",
+				"%-11s  Sent: %-7d Received: %-7d Dropped: %-6d TimedOut: %-6d RTT: %s / %s / %s  Rate: %.2f %s",
 				strings.ToUpper(string(protocol)),
 				stats.Sent,
 				stats.Received,
@@ -57,6 +70,7 @@ func Print() {
 				avgRTT,
 				maxRTT,
 				stats.TransmissionRate,
+				unit,
 			),
 		)
 	}

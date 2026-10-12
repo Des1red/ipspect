@@ -8,11 +8,24 @@ func Snapshot() NetworkStats {
 	icmp, _, _ := snapshotAt(ICMP, now)
 	arp, _, _ := snapshotAt(ARP, now)
 	tcp, _, _ := snapshotAt(TCP, now)
+	dns, _, _ := snapshotAt(DNS, now)
+	netbios, _, _ := snapshotAt(NetBIOS, now)
+
+	tcpConnect, _, _ := snapshotAt(TCPConnect, now)
+	http, _, _ := snapshotAt(HTTP, now)
+	https, _, _ := snapshotAt(HTTPS, now)
+	dnsTCP, _, _ := snapshotAt(DNSTCP, now)
 
 	return NetworkStats{
-		ICMP: icmp,
-		ARP:  arp,
-		TCP:  tcp,
+		ICMP:       icmp,
+		ARP:        arp,
+		TCP:        tcp,
+		DNS:        dns,
+		NetBIOS:    netbios,
+		TCPConnect: tcpConnect,
+		HTTP:       http,
+		HTTPS:      https,
+		DNSTCP:     dnsTCP,
 	}
 }
 

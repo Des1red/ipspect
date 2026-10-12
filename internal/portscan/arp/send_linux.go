@@ -4,8 +4,10 @@ package arp
 
 import (
 	"encoding/binary"
+	"ipspect/internal/network/app"
 	"net"
 	"syscall"
+	"time"
 )
 
 func buildRequest(
@@ -84,7 +86,12 @@ func (s *scanner) send(
 		target,
 	)
 
-	return syscall.Sendto(
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	start := time.Now()
+
+	err := syscall.Sendto(
 		s.fd,
 		frame,
 		0,
@@ -103,4 +110,14 @@ func (s *scanner) send(
 			},
 		},
 	)
+
+	if err != nil {
+		return err
+	}
+
+	s.expected[target.String()] = start
+
+	app.Send(app.ARP)
+
+	return nil
 }

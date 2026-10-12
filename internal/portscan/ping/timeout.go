@@ -1,6 +1,9 @@
 package ping
 
-import "time"
+import (
+	"ipspect/internal/network/app"
+	"time"
+)
 
 func (s *scanState) expireProbes(
 	now time.Time,
@@ -12,8 +15,16 @@ func (s *scanState) expireProbes(
 			continue
 		}
 
+		if !pending.sentAt.IsZero() {
+			app.Timeout(app.ICMP)
+
+			pending.sentAt = time.Time{}
+		}
+
 		if pending.attempts <= icmpRetries {
 			pending.attempts++
+
+			sentAt := time.Now()
 
 			err := s.scanner.send(
 				pending.ip,
@@ -27,6 +38,8 @@ func (s *scanState) expireProbes(
 			if err != nil {
 				continue
 			}
+
+			pending.sentAt = sentAt
 
 			continue
 		}

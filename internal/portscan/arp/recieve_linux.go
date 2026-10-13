@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"ipspect/internal/network/app"
+	"ipspect/internal/network/timeout"
 	"net"
 	"syscall"
 	"time"
@@ -109,7 +110,7 @@ func (s *scanner) receiveLoop() {
 
 		s.mu.Lock()
 
-		start, expected := s.expected[key]
+		pending, expected := s.expected[key]
 
 		if !expected {
 			s.mu.Unlock()
@@ -120,6 +121,8 @@ func (s *scanner) receiveLoop() {
 			s.mu.Unlock()
 			continue
 		}
+
+		delete(s.expected, key)
 
 		s.found[key] = arpHost{
 			ip: append(
@@ -135,9 +138,21 @@ func (s *scanner) receiveLoop() {
 			iface: s.group.iface.Name,
 		}
 
-		rtt := time.Since(start)
+		rtt := time.Since(
+			pending.sentAt,
+		)
+
+		firstAttempt := pending.retries == 0
 
 		s.mu.Unlock()
+
+		if firstAttempt {
+			s.timeouts.Observe(
+				timeout.ARP,
+				s.group.iface.Name,
+				rtt,
+			)
+		}
 
 		app.Receive(
 			app.ARP,

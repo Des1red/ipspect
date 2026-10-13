@@ -1,15 +1,17 @@
 package search
 
 import (
+	"time"
+
 	"ipspect/internal/network/app"
+	"ipspect/internal/network/timeout"
 	synprobe "ipspect/internal/portscan/tcp/probe"
 )
 
 func (s *scanState) handleReply(
 	reply synprobe.Reply,
 ) {
-	pending, ok :=
-		s.pending[reply.DstPort]
+	pending, ok := s.pending[reply.DstPort]
 
 	if !ok {
 		return
@@ -23,7 +25,6 @@ func (s *scanState) handleReply(
 
 	if reply.SrcPort !=
 		uint16(pending.job.port) {
-
 		return
 	}
 
@@ -34,11 +35,9 @@ func (s *scanState) handleReply(
 			return
 		}
 
-		app.Receive(
-			app.TCP,
-			reply.ReceivedAt.Sub(
-				pending.sentAt,
-			),
+		s.recordResponse(
+			pending,
+			reply.ReceivedAt,
 		)
 
 		recordPortState(
@@ -55,25 +54,19 @@ func (s *scanState) handleReply(
 			reply.Ack,
 		)
 
-		s.releaseProbe(
-			pending.srcPort,
-		)
-
+		s.releaseProbe(pending.srcPort)
 		return
 	}
 
 	if reply.Flags&synprobe.FlagRST != 0 {
 		if reply.Flags&synprobe.FlagACK != 0 &&
 			reply.Ack != pending.seq+1 {
-
 			return
 		}
 
-		app.Receive(
-			app.TCP,
-			reply.ReceivedAt.Sub(
-				pending.sentAt,
-			),
+		s.recordResponse(
+			pending,
+			reply.ReceivedAt,
 		)
 
 		recordPortState(
@@ -82,22 +75,38 @@ func (s *scanState) handleReply(
 			"closed",
 		)
 
-		s.releaseProbe(
-			pending.srcPort,
-		)
+		s.releaseProbe(pending.srcPort)
 	}
+}
+
+func (s *scanState) recordResponse(
+	pending *pendingProbe,
+	receivedAt time.Time,
+) {
+	rtt := receivedAt.Sub(
+		pending.sentAt,
+	)
+
+	if pending.attempts == 1 && rtt >= 0 {
+		app.Receive(app.TCP, rtt)
+
+		s.timeouts.Observe(
+			timeout.TCP,
+			pending.job.ip.String(),
+			rtt,
+		)
+
+		return
+	}
+
+	// A reply following a retry may be
+	// from either transmission.
+	app.Receive(app.TCP, -1)
 }
 
 func (s *scanState) releaseProbe(
 	srcPort uint16,
 ) {
-	delete(
-		s.pending,
-		srcPort,
-	)
-
-	delete(
-		s.usedPorts,
-		srcPort,
-	)
+	delete(s.pending, srcPort)
+	delete(s.usedPorts, srcPort)
 }

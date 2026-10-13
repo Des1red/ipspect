@@ -1,8 +1,10 @@
 package ping
 
 import (
-	"ipspect/internal/models"
 	"net"
+
+	"ipspect/internal/models"
+	"ipspect/internal/network/timeout"
 )
 
 func Controller() error {
@@ -22,8 +24,9 @@ func Controller() error {
 	defer scanner.close()
 
 	state := &scanState{
-		scanner: scanner,
-		total:   len(targets),
+		scanner:  scanner,
+		timeouts: timeout.New(),
+		total:    len(targets),
 
 		pending: make(
 			map[int]*icmpProbe,
@@ -40,7 +43,10 @@ func Controller() error {
 		nextSequence: 1,
 	}
 
-	state.run()
+	if err := state.run(); err != nil {
+		return err
+	}
+
 	state.storeResults()
 
 	return nil

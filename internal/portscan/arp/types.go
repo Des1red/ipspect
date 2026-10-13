@@ -1,6 +1,7 @@
 package arp
 
 import (
+	"ipspect/internal/network/timeout"
 	"net"
 	"sync"
 	"time"
@@ -8,7 +9,7 @@ import (
 
 const (
 	arpPacketsPerSecond = 500
-	arpReplyWait        = 750 * time.Millisecond
+	arpRetries          = 2
 )
 
 type interfaceGroup struct {
@@ -24,13 +25,25 @@ type arpHost struct {
 	iface string
 }
 
+type pendingARP struct {
+	sentAt   time.Time
+	deadline time.Time
+
+	retries int
+	queued  bool
+}
+
 type scanner struct {
 	fd int
 
 	group interfaceGroup
 
-	expected map[string]time.Time
+	expected map[string]*pendingARP
 	found    map[string]arpHost
+
+	missed int
+
+	timeouts *timeout.Manager
 
 	mu sync.Mutex
 

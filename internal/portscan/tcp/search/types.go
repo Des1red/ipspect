@@ -1,14 +1,22 @@
 package search
 
 import (
-	synprobe "ipspect/internal/portscan/tcp/probe"
 	"net"
 	"time"
+
+	"ipspect/internal/network/timeout"
+	synprobe "ipspect/internal/portscan/tcp/probe"
 )
 
 const (
-	synWindow  = 500
-	synTimeout = 10 * time.Second
+	synWindow           = 2048
+	synPacketsPerSecond = 500
+	synRetries          = 1
+
+	synMinimumTimeout = 3 * time.Second
+
+	synCongestionPause = 150 * time.Millisecond
+	synMaxSendFailures = 20
 )
 
 type scanJob struct {
@@ -18,25 +26,31 @@ type scanJob struct {
 }
 
 type pendingProbe struct {
-	job      scanJob
-	srcIP    net.IP
-	srcPort  uint16
-	seq      uint32
+	job     scanJob
+	srcIP   net.IP
+	srcPort uint16
+	seq     uint32
+
+	attempts int
+
 	sentAt   time.Time
 	deadline time.Time
 }
 
 type scanState struct {
-	scanner *synprobe.SYNScanner
+	scanner  *synprobe.SYNScanner
+	timeouts *timeout.Manager
 
 	ports []int
 
-	pending map[uint16]*pendingProbe
-
+	pending   map[uint16]*pendingProbe
 	usedPorts map[uint16]struct{}
 
 	hostIndex int
 	portIndex int
 
 	moreJobs bool
+
+	pauseUntil              time.Time
+	consecutiveSendFailures int
 }

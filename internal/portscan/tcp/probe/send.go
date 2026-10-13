@@ -2,8 +2,9 @@ package probe
 
 import (
 	"fmt"
-	"ipspect/internal/network/app"
 	"net"
+
+	"ipspect/internal/network/app"
 
 	"golang.org/x/net/ipv4"
 )
@@ -14,6 +15,41 @@ func (s *SYNScanner) SendSYN(
 	srcPort uint16,
 	dstPort uint16,
 	seq uint32,
+) error {
+	return s.sendSYN(
+		srcIP,
+		dstIP,
+		srcPort,
+		dstPort,
+		seq,
+		false,
+	)
+}
+
+func (s *SYNScanner) RetrySYN(
+	srcIP net.IP,
+	dstIP net.IP,
+	srcPort uint16,
+	dstPort uint16,
+	seq uint32,
+) error {
+	return s.sendSYN(
+		srcIP,
+		dstIP,
+		srcPort,
+		dstPort,
+		seq,
+		true,
+	)
+}
+
+func (s *SYNScanner) sendSYN(
+	srcIP net.IP,
+	dstIP net.IP,
+	srcPort uint16,
+	dstPort uint16,
+	seq uint32,
+	retry bool,
 ) error {
 	segment := buildTCPSegment(
 		srcIP,
@@ -33,7 +69,11 @@ func (s *SYNScanner) SendSYN(
 		return err
 	}
 
-	app.Send(app.TCP)
+	if retry {
+		app.Retry(app.TCP)
+	} else {
+		app.Send(app.TCP)
+	}
 
 	return nil
 }
@@ -86,7 +126,6 @@ func (s *SYNScanner) sendSegment(
 		segment,
 		nil,
 	); err != nil {
-
 		return fmt.Errorf(
 			"send raw TCP segment to %s: %w",
 			dstIP,

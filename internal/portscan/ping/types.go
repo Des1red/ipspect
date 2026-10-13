@@ -4,13 +4,19 @@ import (
 	"net"
 	"time"
 
+	"ipspect/internal/network/timeout"
+
 	"golang.org/x/net/icmp"
 )
 
 const (
 	icmpWindow  = 500
-	icmpTimeout = 750 * time.Millisecond
 	icmpRetries = 3
+
+	icmpPacketsPerSecond = 50
+
+	icmpCongestionPause = 150 * time.Millisecond
+	icmpMaxSendFailures = 20
 )
 
 type icmpReply struct {
@@ -41,9 +47,11 @@ type icmpScanner struct {
 }
 
 type scanState struct {
-	scanner *icmpScanner
-
-	total int
+	scanner                 *icmpScanner
+	timeouts                *timeout.Manager
+	pauseUntil              time.Time
+	consecutiveSendFailures int
+	total                   int
 
 	pending map[int]*icmpProbe
 

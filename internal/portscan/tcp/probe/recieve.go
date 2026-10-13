@@ -7,10 +7,7 @@ import (
 )
 
 func (s *SYNScanner) readLoop() {
-	buf := make(
-		[]byte,
-		65535,
-	)
+	buf := make([]byte, 65535)
 
 	for {
 		header, payload, _, err :=
@@ -18,18 +15,24 @@ func (s *SYNScanner) readLoop() {
 
 		if err != nil {
 			select {
+			case <-s.done:
+				return
+			default:
+			}
+
+			select {
 			case s.errors <- err:
 			default:
 			}
 
 			return
 		}
+
 		receivedAt := time.Now()
 
 		if header == nil ||
 			header.Protocol != 6 ||
 			len(payload) < 20 {
-
 			continue
 		}
 
@@ -62,7 +65,8 @@ func (s *SYNScanner) readLoop() {
 
 		select {
 		case s.replies <- reply:
-		default:
+		case <-s.done:
+			return
 		}
 	}
 }

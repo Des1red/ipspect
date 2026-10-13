@@ -27,6 +27,7 @@ type RTTStats struct {
 
 type ProtocolStats struct {
 	Sent     int
+	Retries  int
 	Received int
 	Dropped  int
 	TimedOut int

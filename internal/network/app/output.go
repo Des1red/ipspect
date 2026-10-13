@@ -60,9 +60,10 @@ func Print() {
 		output.Log(
 			"text",
 			fmt.Sprintf(
-				"%-11s  Sent: %-7d Received: %-7d Dropped: %-6d TimedOut: %-6d RTT: %s / %s / %s  Rate: %.2f %s",
+				"%-11s  Sent: %-7d Retries: %-7d Received: %-7d Dropped: %-6d TimedOut: %-6d RTT: %s / %s / %s  Rate: %.2f %s",
 				strings.ToUpper(string(protocol)),
 				stats.Sent,
+				stats.Retries,
 				stats.Received,
 				stats.Dropped,
 				stats.TimedOut,
@@ -78,6 +79,6 @@ func Print() {
 	if printed {
 		output.Log("end", "")
 
-		printHealth()
+		printDiagnostics()
 	}
 }

@@ -2,8 +2,9 @@ package search
 
 import (
 	"fmt"
-	"ipspect/internal/models"
 	"time"
+
+	"ipspect/internal/models"
 )
 
 func (s *scanState) dispatch() error {
@@ -20,25 +21,21 @@ func (s *scanState) dispatch() error {
 			port: s.ports[s.portIndex],
 		}
 
-		s.advanceCursor()
-
 		if job.ip == nil {
+			s.advanceCursor()
 			continue
 		}
 
-		srcIP, err :=
-			s.scanner.SourceIPv4(
-				job.ip,
-			)
+		srcIP, err := s.scanner.SourceIPv4(
+			job.ip,
+		)
 
 		if err != nil {
-			recordPortState(
-				job.hostIndex,
-				job.port,
-				"filtered",
+			return fmt.Errorf(
+				"determine TCP source for %s: %w",
+				job.ip,
+				err,
 			)
-
-			continue
 		}
 
 		srcPort, err :=
@@ -48,25 +45,14 @@ func (s *scanState) dispatch() error {
 
 		if err != nil {
 			return fmt.Errorf(
-				"failed to reserve SYN source port: %w",
+				"reserve SYN source port: %w",
 				err,
 			)
 		}
 
 		seq := s.scanner.Sequence()
-
-		pending := &pendingProbe{
-			job:     job,
-			srcIP:   srcIP,
-			srcPort: srcPort,
-			seq:     seq,
-
-			deadline: time.Now().Add(
-				synTimeout,
-			),
-		}
-
 		sentAt := time.Now()
+
 		err = s.scanner.SendSYN(
 			srcIP,
 			job.ip,
@@ -76,22 +62,44 @@ func (s *scanState) dispatch() error {
 		)
 
 		if err != nil {
-			recordPortState(
-				job.hostIndex,
-				job.port,
-				"filtered",
-			)
+			if s.recoverableSendError(err) {
+				return nil
+			}
 
-			continue
+			return fmt.Errorf(
+				"send SYN to %s:%d: %w",
+				job.ip,
+				job.port,
+				err,
+			)
 		}
 
-		pending.sentAt = sentAt
+		s.consecutiveSendFailures = 0
 
-		s.pending[srcPort] =
-			pending
+		wait := s.probeTimeout(
+			job.ip,
+			0,
+		)
 
-		s.usedPorts[srcPort] =
-			struct{}{}
+		s.pending[srcPort] = &pendingProbe{
+			job:     job,
+			srcIP:   srcIP,
+			srcPort: srcPort,
+			seq:     seq,
+
+			attempts: 1,
+
+			sentAt:   sentAt,
+			deadline: sentAt.Add(wait),
+		}
+
+		s.usedPorts[srcPort] = struct{}{}
+
+		s.advanceCursor()
+
+		// Only one successful transmission
+		// per scheduler tick.
+		return nil
 	}
 
 	return nil

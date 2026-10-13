@@ -1,8 +1,10 @@
 package ping
 
 import (
-	"ipspect/internal/network/app"
 	"net"
+
+	"ipspect/internal/network/app"
+	"ipspect/internal/network/timeout"
 )
 
 func (s *scanState) handleReply(
@@ -18,12 +20,28 @@ func (s *scanState) handleReply(
 		return
 	}
 
-	if !pending.sentAt.IsZero() {
+	rtt := reply.receivedAt.Sub(
+		pending.sentAt,
+	)
+
+	if pending.attempts == 1 && rtt >= 0 {
+		s.timeouts.Observe(
+			timeout.ICMP,
+			pending.ip.String(),
+			rtt,
+		)
+
 		app.Receive(
 			app.ICMP,
-			reply.receivedAt.Sub(
-				pending.sentAt,
-			),
+			rtt,
+		)
+	} else {
+		// The reply could belong to an
+		// earlier transmission.
+		// Count it, but do not sample RTT.
+		app.Receive(
+			app.ICMP,
+			-1,
 		)
 	}
 

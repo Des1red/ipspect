@@ -5,6 +5,7 @@ package arp
 import (
 	"encoding/binary"
 	"ipspect/internal/network/app"
+	"ipspect/internal/network/timeout"
 	"net"
 	"syscall"
 	"time"
@@ -80,14 +81,61 @@ func buildRequest(
 func (s *scanner) send(
 	target net.IP,
 ) error {
+	return s.transmit(
+		target,
+		false,
+	)
+}
+
+func (s *scanner) retry(
+	target net.IP,
+) error {
+	return s.transmit(
+		target,
+		true,
+	)
+}
+
+func (s *scanner) transmit(
+	target net.IP,
+	retry bool,
+) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := target.String()
+
+	if _, exists := s.found[key]; exists {
+		return nil
+	}
+
+	pending, exists := s.expected[key]
+
+	if retry {
+		if !exists || !pending.queued {
+			return nil
+		}
+	} else if exists {
+		return nil
+	}
+
+	attempt := 0
+
+	if retry {
+		attempt = pending.retries + 1
+	}
+
+	wait := s.timeouts.Backoff(
+		timeout.ARP,
+		s.group.iface.Name,
+		attempt,
+	)
+
 	frame := buildRequest(
 		s.group.iface.HardwareAddr,
 		s.group.sourceIP,
 		target,
 	)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	start := time.Now()
 
@@ -115,9 +163,24 @@ func (s *scanner) send(
 		return err
 	}
 
-	s.expected[target.String()] = start
+	if !exists {
+		pending = &pendingARP{}
 
-	app.Send(app.ARP)
+		s.expected[key] = pending
+	}
+
+	pending.sentAt = start
+	pending.deadline = start.Add(wait)
+	pending.retries = attempt
+	pending.queued = false
+
+	if retry {
+		app.Retry(app.ARP)
+	} else {
+		app.Send(app.ARP)
+	}
+
+	return nil
 
 	return nil
 }

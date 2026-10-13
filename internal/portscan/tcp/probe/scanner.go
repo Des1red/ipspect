@@ -34,6 +34,8 @@ type SYNScanner struct {
 
 	nextPort uint16
 	nextSeq  uint32
+
+	done chan struct{}
 }
 
 func NewSYNScanner() (*SYNScanner, error) {
@@ -64,8 +66,10 @@ func NewSYNScanner() (*SYNScanner, error) {
 
 		replies: make(
 			chan Reply,
-			2048,
+			8192,
 		),
+
+		done: make(chan struct{}),
 
 		errors: make(
 			chan error,
@@ -89,6 +93,7 @@ func (s *SYNScanner) Close() error {
 	var err error
 
 	s.closeOnce.Do(func() {
+		close(s.done)
 		err = s.conn.Close()
 	})
 

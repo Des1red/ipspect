@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	"ipspect/internal/models"
+	"ipspect/internal/network/timeout"
 	"ipspect/internal/output"
 	synprobe "ipspect/internal/portscan/tcp/probe"
 	"os"
@@ -48,8 +49,9 @@ func execute() error {
 	}
 
 	state := &scanState{
-		scanner: scanner,
-		ports:   ports,
+		scanner:  scanner,
+		timeouts: timeout.New(),
+		ports:    ports,
 
 		pending: make(
 			map[uint16]*pendingProbe,
@@ -63,4 +65,5 @@ func execute() error {
 	}
 
 	return state.run()
+
 }

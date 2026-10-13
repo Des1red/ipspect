@@ -5,8 +5,8 @@ package arp
 import (
 	"encoding/binary"
 	"fmt"
+	"ipspect/internal/network/timeout"
 	"syscall"
-	"time"
 )
 
 func networkOrder(
@@ -86,13 +86,15 @@ func openScanner(
 		group: group,
 
 		expected: make(
-			map[string]time.Time,
+			map[string]*pendingARP,
 			len(group.targets),
 		),
 
 		found: make(
 			map[string]arpHost,
 		),
+
+		timeouts: timeout.New(),
 
 		done: make(
 			chan struct{},

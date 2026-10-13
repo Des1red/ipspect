@@ -2,8 +2,9 @@ package ping
 
 import (
 	"fmt"
-	"ipspect/internal/network/app"
 	"net"
+
+	"ipspect/internal/network/app"
 
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -13,6 +14,7 @@ import (
 func (s *icmpScanner) send(
 	ip net.IP,
 	seq int,
+	retry bool,
 ) error {
 	var conn *icmp.PacketConn
 	var typ icmp.Type
@@ -63,7 +65,11 @@ func (s *icmpScanner) send(
 		return err
 	}
 
-	app.Send(app.ICMP)
+	if retry {
+		app.Retry(app.ICMP)
+	} else {
+		app.Send(app.ICMP)
+	}
 
 	return nil
 }

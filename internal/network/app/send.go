@@ -16,3 +16,21 @@ func Send(
 		state.stats.Sent++
 	}
 }
+
+func Retry(
+	protocol Protocol,
+) {
+	state := stateFor(protocol)
+
+	if state == nil {
+		return
+	}
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	if state.canRecord() {
+		state.stats.Sent++
+		state.stats.Retries++
+	}
+}

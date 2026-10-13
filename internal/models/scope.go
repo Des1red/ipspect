@@ -33,6 +33,7 @@ type PortDetail struct {
 
 	DBLookup      string
 	Fingerprint   FingerprintResult
+	RawResponse   []byte
 	ServiceReason string
 }
 
@@ -50,8 +51,9 @@ type FingerprintMatch struct {
 	Product  string
 	Evidence string
 
-	Banner  string
-	Headers map[string][]string
+	Banner     string
+	Headers    map[string][]string
+	Confidence string
 }
 
 type HostResult struct {

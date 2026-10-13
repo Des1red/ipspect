@@ -1,0 +1,223 @@
+package sender
+
+import (
+	"bufio"
+	"crypto/tls"
+	"fmt"
+	"io"
+	"ipspect/internal/models"
+	"ipspect/internal/network/app"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const probeTimeout = 750 * time.Millisecond
+
+func ProbeHTTP(
+	ip string,
+	port int,
+	secure bool,
+) models.FingerprintMatch {
+	address := net.JoinHostPort(
+		ip,
+		strconv.Itoa(port),
+	)
+
+	dialer := &net.Dialer{
+		Timeout: probeTimeout,
+	}
+
+	protocol := app.HTTP
+
+	if secure {
+		protocol = app.HTTPS
+	}
+
+	var conn net.Conn
+	var err error
+
+	connectStart := time.Now()
+
+	app.Send(app.TCPConnect)
+
+	if secure {
+		conn, err = tls.DialWithDialer(
+			dialer,
+			"tcp",
+			address,
+			&tls.Config{
+				InsecureSkipVerify: true,
+			},
+		)
+	} else {
+		conn, err = dialer.Dial(
+			"tcp",
+			address,
+		)
+	}
+
+	if err != nil {
+		app.TimeoutOnError(
+			app.TCPConnect,
+			err,
+		)
+
+		return models.FingerprintMatch{}
+	}
+
+	app.Receive(
+		app.TCPConnect,
+		time.Since(connectStart),
+	)
+
+	defer conn.Close()
+
+	if err := conn.SetDeadline(
+		time.Now().Add(probeTimeout),
+	); err != nil {
+		return models.FingerprintMatch{}
+	}
+
+	requestStart := time.Now()
+
+	_, err = fmt.Fprintf(
+		conn,
+		"GET / HTTP/1.0\r\n"+
+			"Host: %s\r\n"+
+			"User-Agent: ipspect\r\n"+
+			"Connection: close\r\n"+
+			"\r\n",
+		ip,
+	)
+
+	if err != nil {
+		app.TimeoutOnError(
+			protocol,
+			err,
+		)
+
+		return models.FingerprintMatch{}
+	}
+
+	app.Send(protocol)
+
+	reader := bufio.NewReader(
+		io.LimitReader(
+			conn,
+			32<<10,
+		),
+	)
+
+	resp, err := http.ReadResponse(
+		reader,
+		&http.Request{
+			Method: "GET",
+		},
+	)
+
+	if err != nil {
+		app.TimeoutOnError(
+			protocol,
+			err,
+		)
+
+		return models.FingerprintMatch{}
+	}
+
+	app.Receive(
+		protocol,
+		time.Since(requestStart),
+	)
+
+	defer resp.Body.Close()
+
+	// An HTTPS-only server may return a
+	// plaintext HTTP 400 diagnostic.
+	// This does not confirm HTTP service.
+	if !secure &&
+		resp.StatusCode == http.StatusBadRequest {
+
+		body, _ := io.ReadAll(
+			io.LimitReader(
+				resp.Body,
+				512,
+			),
+		)
+
+		lower := strings.ToLower(
+			string(body),
+		)
+
+		if strings.Contains(
+			lower,
+			"http request to an https server",
+		) ||
+			strings.Contains(
+				lower,
+				"plain http request was sent to https port",
+			) {
+
+			return models.FingerprintMatch{}
+		}
+	}
+
+	service := "http"
+	evidence := "HTTP response to active request"
+
+	if secure {
+		service = "https"
+		evidence = "HTTP response over TLS"
+	}
+
+	headers := make(
+		map[string][]string,
+		len(resp.Header),
+	)
+
+	for name, values := range resp.Header {
+		if strings.EqualFold(
+			name,
+			"Set-Cookie",
+		) ||
+			strings.EqualFold(
+				name,
+				"WWW-Authenticate",
+			) ||
+			strings.EqualFold(
+				name,
+				"Proxy-Authenticate",
+			) {
+
+			headers[name] = []string{
+				"[redacted]",
+			}
+
+			continue
+		}
+
+		headers[name] = append(
+			[]string(nil),
+			values...,
+		)
+	}
+
+	return models.FingerprintMatch{
+		Service:    service,
+		Confidence: "high",
+
+		Product: resp.Header.Get(
+			"Server",
+		),
+
+		Evidence: evidence,
+
+		Banner: resp.Proto +
+			" " +
+			resp.Status,
+
+		Headers: headers,
+	}
+}

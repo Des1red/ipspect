@@ -1,6 +1,10 @@
 package enrich
 
-import "ipspect/internal/models"
+import (
+	"ipspect/internal/database/load"
+	"ipspect/internal/models"
+	"ipspect/internal/portscan/tcp/enrich/capture"
+)
 
 func enrichPort(
 	hostIndex int,
@@ -9,13 +13,13 @@ func enrichPort(
 	host := &models.LOOT.Hosts[hostIndex]
 	detail := &host.Details[detailIndex]
 
-	detail.DBLookup = lookupService(
+	detail.DBLookup = load.LookupPort(
 		detail.Port,
 	)
 
 	detail.Service = "unknown"
 
-	enrichTCP(
+	capture.Capture(
 		host.Target,
 		detail,
 	)

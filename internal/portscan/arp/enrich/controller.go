@@ -1,6 +1,7 @@
 package enrich
 
 import (
+	"ipspect/internal/database/load"
 	"ipspect/internal/models"
 	"ipspect/internal/network/app"
 	"sync"
@@ -13,7 +14,7 @@ func Controller(hosts []models.ARPResult) error {
 		return nil
 	}
 
-	vendorErr := loadIEEE()
+	vendorErr := load.LoadIEEE()
 
 	app.Start(app.DNS)
 	app.Start(app.NetBIOS)
@@ -40,7 +41,7 @@ func Controller(hosts []models.ARPResult) error {
 				host := &hosts[index]
 
 				if vendorErr == nil {
-					host.Vendor = lookupVendor(
+					host.Vendor = load.LookupVendor(
 						host.MAC,
 					)
 				}

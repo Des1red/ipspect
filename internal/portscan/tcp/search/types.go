@@ -8,7 +8,7 @@ import (
 
 const (
 	synWindow  = 500
-	synTimeout = 500 * time.Millisecond
+	synTimeout = 10 * time.Second
 )
 
 type scanJob struct {

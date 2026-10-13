@@ -191,18 +191,21 @@ func parsePortRange(
 }
 
 func Target() {
-	fmt.Print("IP >> ")
-
-	var x string
-	fmt.Scanln(&x)
-
-	x = strings.TrimSpace(x)
-
-	for x == "" {
+	var x = models.INFO.TargetName
+	if x == "" {
 		fmt.Print("IP >> ")
+
 		fmt.Scanln(&x)
 
 		x = strings.TrimSpace(x)
+
+		for x == "" {
+			fmt.Print("IP >> ")
+			fmt.Scanln(&x)
+
+			x = strings.TrimSpace(x)
+		}
+
 	}
 
 	if err := setTarget(x); err != nil {

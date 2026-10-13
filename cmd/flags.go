@@ -163,9 +163,14 @@ port scanning with service fingerprinting and enrichment.`
 			"scan an IPv4 subnet",
 		),
 		clihelp.F(
+			"-t, --target",
+			"<IPv4/CIDR>",
+			"set the target without an interactive prompt",
+		),
+		clihelp.F(
 			"*Target selection",
 			"",
-			"on runtime",
+			"on runtime if -t not provided",
 		),
 	)
 
@@ -200,6 +205,7 @@ func version() {
 var (
 	saveResults bool
 	verbose     bool
+	target      string
 
 	flagICMP bool
 	flagARP  bool
@@ -254,6 +260,34 @@ func flagcheck() {
 		arg := os.Args[i]
 
 		switch arg {
+		case "-t", "--target":
+			if target != "" {
+				flagError(
+					"target may only be specified once",
+				)
+			}
+
+			if i+1 >= len(os.Args) ||
+				strings.HasPrefix(os.Args[i+1], "-") {
+
+				flagError(
+					"-t/--target requires an IPv4 address or CIDR",
+				)
+			}
+
+			i++
+
+			target = strings.TrimSpace(
+				os.Args[i],
+			)
+
+			if target == "" {
+				flagError(
+					"-t/--target cannot be empty",
+				)
+			}
+			models.INFO.TargetName = target
+
 		case "-s", "--s", "--save":
 			saveResults = true
 

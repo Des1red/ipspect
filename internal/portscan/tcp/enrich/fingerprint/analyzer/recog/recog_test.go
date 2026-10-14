@@ -12,11 +12,13 @@ func TestRecogPassiveSSH(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	session := &Session{}
+
 	detail := &models.PortDetail{
 		Banner: "SSH-2.0-RomSShell_4.62",
 	}
 
-	match := RecognizePassive(
+	match := session.RecognizePassive(
 		models.NewRecogEvidence(detail),
 	)
 
@@ -44,7 +46,9 @@ func TestRecogHTTPServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	match := Enrich(
+	session := &Session{}
+
+	match := session.Enrich(
 		models.FingerprintMatch{
 			Service:    "http",
 			Confidence: "high",
@@ -77,13 +81,15 @@ func TestRecogUnknownBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	session := &Session{}
+
 	evidence := models.RecogEvidence{
 		RawResponse: []byte{
 			0x01, 0x00, 0x03, 0x00,
 		},
 	}
 
-	result := RecognizeRaw(evidence)
+	result := session.RecognizeRaw(evidence)
 
 	if result.Service != "" {
 		t.Fatalf(
@@ -98,13 +104,15 @@ func TestRecogRawSSH(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	session := &Session{}
+
 	evidence := models.RecogEvidence{
 		RawResponse: []byte(
 			"SSH-2.0-RomSShell_4.62\r\n",
 		),
 	}
 
-	match := RecognizeRaw(evidence)
+	match := session.RecognizeRaw(evidence)
 
 	if match.Service != "ssh" ||
 		match.Confidence != "high" {

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func RecognizeRaw(
+func (s *Session) RecognizeRaw(
 	evidence models.RecogEvidence,
 ) models.FingerprintMatch {
 	data := evidence.RawResponse
@@ -34,7 +34,7 @@ func RecognizeRaw(
 		}
 	}
 
-	return RecognizePassive(
+	return s.RecognizePassive(
 		models.RecogEvidence{
 			Banner: strings.TrimSpace(
 				string(line),

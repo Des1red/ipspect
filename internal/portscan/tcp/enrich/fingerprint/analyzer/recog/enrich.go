@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func Enrich(
+func (s *Session) Enrich(
 	match models.FingerprintMatch,
 ) models.FingerprintMatch {
 	var key, value string
@@ -44,7 +44,7 @@ func Enrich(
 		return match
 	}
 
-	found := matchRecog(
+	found := s.lookup(
 		key,
 		match.Service,
 		value,

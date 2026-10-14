@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func RecognizePassive(
+func (s *Session) RecognizePassive(
 	evidence models.RecogEvidence,
 ) models.FingerprintMatch {
 	banner := strings.TrimSpace(
@@ -26,7 +26,7 @@ func RecognizePassive(
 				parts[1] == "1.99" ||
 				parts[1] == "1.5") {
 
-			match := matchRecog(
+			match := s.lookup(
 				"ssh.banner",
 				"ssh",
 				parts[2],
@@ -48,13 +48,13 @@ func RecognizePassive(
 			banner[4:],
 		)
 
-		ftp := matchRecog(
+		ftp := s.lookup(
 			"ftp.banner",
 			"ftp",
 			value,
 		)
 
-		smtp := matchRecog(
+		smtp := s.lookup(
 			"smtp.banner",
 			"smtp",
 			value,
@@ -96,7 +96,7 @@ func RecognizePassive(
 			evidence.Headers,
 		); value != "" {
 
-			match := matchRecog(
+			match := s.lookup(
 				"http_header.server",
 				"http",
 				value,

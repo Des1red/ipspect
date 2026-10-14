@@ -10,9 +10,15 @@ func inspect(
 	ip string,
 	detail *models.PortDetail,
 ) {
+	session := &recog.Session{}
+
 	passive := analyzer.DetectBanner(detail)
 
-	if recognizePassive(detail, passive) {
+	if recognizePassive(
+		detail,
+		passive,
+		session,
+	) {
 		return
 	}
 
@@ -22,12 +28,17 @@ func inspect(
 		analyzer.RecordMatches(
 			detail,
 			[]models.FingerprintMatch{passive},
+			session,
 		)
 
 		return
 	}
 
-	if probeProtocols(ip, detail) {
+	if probeProtocols(
+		ip,
+		detail,
+		session,
+	) {
 		return
 	}
 
@@ -35,13 +46,46 @@ func inspect(
 		analyzer.RecordMatches(
 			detail,
 			[]models.FingerprintMatch{passive},
+			session,
 		)
 
 		return
 	}
 
-	if probeRawResponses(ip, detail) {
+	identified, storedBinaryAnalyzed :=
+		probeRawResponses(
+			ip,
+			detail,
+			session,
+		)
+
+	if identified {
 		return
+	}
+
+	// Only decode the retained response if
+	// it hasn't already been analyzed.
+	if !storedBinaryAnalyzed &&
+		analyzer.IsBinaryResponse(
+			detail.RawResponse,
+		) {
+
+		match := analyzeBinary(
+			detail,
+			detail.RawResponse,
+			nil,
+			session,
+		)
+
+		if match.Service != "" {
+			analyzer.RecordMatches(
+				detail,
+				[]models.FingerprintMatch{match},
+				session,
+			)
+
+			return
+		}
 	}
 
 	detail.Fingerprint = models.FingerprintResult{
@@ -54,12 +98,13 @@ func inspect(
 func recognizePassive(
 	detail *models.PortDetail,
 	passive models.FingerprintMatch,
+	session *recog.Session,
 ) bool {
 	evidence := models.NewRecogEvidence(
 		detail,
 	)
 
-	match := recog.RecognizePassive(
+	match := session.RecognizePassive(
 		evidence,
 	)
 
@@ -76,6 +121,7 @@ func recognizePassive(
 	analyzer.RecordMatches(
 		detail,
 		[]models.FingerprintMatch{match},
+		session,
 	)
 
 	return true

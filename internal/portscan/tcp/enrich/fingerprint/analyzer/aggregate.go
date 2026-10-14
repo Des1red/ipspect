@@ -9,6 +9,7 @@ import (
 func RecordMatches(
 	detail *models.PortDetail,
 	matches []models.FingerprintMatch,
+	session *recog.Session,
 ) {
 	analyzed := make(
 		[]models.FingerprintMatch,
@@ -21,7 +22,7 @@ func RecordMatches(
 			match.Evidence,
 			"Rapid7 Recog [",
 		) {
-			match = recog.Enrich(match)
+			match = session.Enrich(match)
 		}
 
 		analyzed = append(

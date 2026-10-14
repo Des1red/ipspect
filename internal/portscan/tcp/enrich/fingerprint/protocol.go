@@ -3,12 +3,14 @@ package fingerprint
 import (
 	"ipspect/internal/models"
 	"ipspect/internal/portscan/tcp/enrich/fingerprint/analyzer"
+	"ipspect/internal/portscan/tcp/enrich/fingerprint/analyzer/recog"
 	"ipspect/internal/portscan/tcp/enrich/fingerprint/sender"
 )
 
 func probeProtocols(
 	ip string,
 	detail *models.PortDetail,
+	session *recog.Session,
 ) bool {
 	// Prioritize DNS on its registered port.
 	if detail.DBLookup == "domain" {
@@ -21,6 +23,7 @@ func probeProtocols(
 			analyzer.RecordMatches(
 				detail,
 				[]models.FingerprintMatch{dns},
+				session,
 			)
 
 			return true
@@ -57,6 +60,7 @@ func probeProtocols(
 		analyzer.RecordMatches(
 			detail,
 			matches,
+			session,
 		)
 
 		return true
@@ -73,6 +77,7 @@ func probeProtocols(
 			analyzer.RecordMatches(
 				detail,
 				[]models.FingerprintMatch{dns},
+				session,
 			)
 
 			return true

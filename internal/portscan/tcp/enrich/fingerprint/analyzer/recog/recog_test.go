@@ -16,7 +16,9 @@ func TestRecogPassiveSSH(t *testing.T) {
 		Banner: "SSH-2.0-RomSShell_4.62",
 	}
 
-	match := RecognizePassive(detail)
+	match := RecognizePassive(
+		models.NewRecogEvidence(detail),
+	)
 
 	if match.Service != "ssh" ||
 		match.Confidence != "high" {
@@ -75,18 +77,41 @@ func TestRecogUnknownBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	detail := &models.PortDetail{
+	evidence := models.RecogEvidence{
 		RawResponse: []byte{
 			0x01, 0x00, 0x03, 0x00,
 		},
 	}
 
-	result := RecognizePassive(detail)
+	result := RecognizeRaw(evidence)
 
 	if result.Service != "" {
 		t.Fatalf(
 			"unexpected binary identification: %+v",
 			result,
+		)
+	}
+}
+
+func TestRecogRawSSH(t *testing.T) {
+	if err := load.LoadRecog(); err != nil {
+		t.Fatal(err)
+	}
+
+	evidence := models.RecogEvidence{
+		RawResponse: []byte(
+			"SSH-2.0-RomSShell_4.62\r\n",
+		),
+	}
+
+	match := RecognizeRaw(evidence)
+
+	if match.Service != "ssh" ||
+		match.Confidence != "high" {
+
+		t.Fatalf(
+			"unexpected raw identification: %+v",
+			match,
 		)
 	}
 }

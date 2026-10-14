@@ -12,14 +12,19 @@ func probeRawResponses(
 	ip string,
 	detail *models.PortDetail,
 ) bool {
-	probes := requests.ForPort(
-		detail.Port,
+	search := models.NewNucleiSearch(
+		ip,
+		detail,
+	)
+
+	probes := requests.ForEvidence(
+		search,
 	)
 
 	for _, request := range probes {
 		response := sender.ProbeRaw(
-			ip,
-			detail.Port,
+			search.Target,
+			search.Port,
 			request,
 		)
 
@@ -35,7 +40,9 @@ func probeRawResponses(
 		}
 
 		match := recog.RecognizeRaw(
-			response,
+			models.RecogEvidence{
+				RawResponse: response,
+			},
 		)
 
 		if match.Service == "" {

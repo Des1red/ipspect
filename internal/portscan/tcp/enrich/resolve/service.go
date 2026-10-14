@@ -1,46 +1,16 @@
 package resolve
 
-import "strings"
-
-var serviceAliases = map[string]string{
-	// DNS
-	"domain": "dns",
-
-	// HTTP
-	"www":      "http",
-	"www-http": "http",
-	"http-alt": "http",
-
-	// SMTP
-	"submission": "smtp",
-}
+import "ipspect/internal/service"
 
 func sameService(
 	registered string,
 	detected string,
 ) bool {
-	registered = strings.ToLower(
-		strings.TrimSpace(registered),
-	)
+	registered = service.Normalize(registered)
+	detected = service.Normalize(detected)
 
-	detected = strings.ToLower(
-		strings.TrimSpace(detected),
-	)
-
-	if registered == "" ||
-		detected == "" ||
-		registered == "unknown" ||
-		detected == "unknown" {
-
+	if registered == "" || detected == "" {
 		return false
-	}
-
-	if alias, ok := serviceAliases[registered]; ok {
-		registered = alias
-	}
-
-	if alias, ok := serviceAliases[detected]; ok {
-		detected = alias
 	}
 
 	return registered == detected

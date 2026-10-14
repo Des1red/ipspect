@@ -7,8 +7,10 @@ import (
 )
 
 func RecognizeRaw(
-	data []byte,
+	evidence models.RecogEvidence,
 ) models.FingerprintMatch {
+	data := evidence.RawResponse
+
 	if len(data) == 0 {
 		return models.FingerprintMatch{}
 	}
@@ -33,7 +35,7 @@ func RecognizeRaw(
 	}
 
 	return RecognizePassive(
-		&models.PortDetail{
+		models.RecogEvidence{
 			Banner: strings.TrimSpace(
 				string(line),
 			),

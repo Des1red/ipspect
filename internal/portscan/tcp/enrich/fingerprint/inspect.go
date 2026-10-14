@@ -55,7 +55,13 @@ func recognizePassive(
 	detail *models.PortDetail,
 	passive models.FingerprintMatch,
 ) bool {
-	match := recog.RecognizePassive(detail)
+	evidence := models.NewRecogEvidence(
+		detail,
+	)
+
+	match := recog.RecognizePassive(
+		evidence,
+	)
 
 	if match.Service == "" {
 		return false

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"ipspect/internal/database"
-	"sort"
+	"ipspect/internal/models"
 	"sync"
 )
 
@@ -69,22 +69,11 @@ func Load() error {
 func ForPort(
 	port int,
 ) []Probe {
-	probes := append(
-		[]Probe(nil),
-		requestsDB...,
-	)
-
-	sort.SliceStable(
-		probes,
-		func(i, j int) bool {
-			a := matchesPort(probes[i], port)
-			b := matchesPort(probes[j], port)
-
-			return a && !b
+	return ForEvidence(
+		models.NucleiSearch{
+			Port: port,
 		},
 	)
-
-	return probes
 }
 
 func matchesPort(

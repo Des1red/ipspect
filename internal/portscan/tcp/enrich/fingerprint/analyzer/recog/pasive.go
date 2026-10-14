@@ -6,9 +6,12 @@ import (
 )
 
 func RecognizePassive(
-	detail *models.PortDetail,
+	evidence models.RecogEvidence,
 ) models.FingerprintMatch {
-	banner := strings.TrimSpace(detail.Banner)
+	banner := strings.TrimSpace(
+		evidence.Banner,
+	)
+
 	upper := strings.ToUpper(banner)
 
 	if strings.HasPrefix(upper, "SSH-") {
@@ -41,7 +44,9 @@ func RecognizePassive(
 	if strings.HasPrefix(banner, "220 ") ||
 		strings.HasPrefix(banner, "220-") {
 
-		value := strings.TrimSpace(banner[4:])
+		value := strings.TrimSpace(
+			banner[4:],
+		)
 
 		ftp := matchRecog(
 			"ftp.banner",
@@ -57,7 +62,9 @@ func RecognizePassive(
 
 		// FTP and SMTP share greeting code 220.
 		// Do not guess when both databases match.
-		if ftp.Service != "" && smtp.Service == "" {
+		if ftp.Service != "" &&
+			smtp.Service == "" {
+
 			if strings.Contains(upper, "FTP") &&
 				!strings.Contains(upper, "SMTP") {
 
@@ -69,7 +76,9 @@ func RecognizePassive(
 			return ftp
 		}
 
-		if smtp.Service != "" && ftp.Service == "" {
+		if smtp.Service != "" &&
+			ftp.Service == "" {
+
 			if strings.Contains(upper, "SMTP") {
 				smtp.Confidence = "high"
 			}
@@ -83,7 +92,10 @@ func RecognizePassive(
 	}
 
 	if strings.HasPrefix(upper, "HTTP/") {
-		if value := serverHeader(detail.Headers); value != "" {
+		if value := serverHeader(
+			evidence.Headers,
+		); value != "" {
+
 			match := matchRecog(
 				"http_header.server",
 				"http",
@@ -93,7 +105,7 @@ func RecognizePassive(
 			if match.Service != "" {
 				match.Confidence = "high"
 				match.Banner = banner
-				match.Headers = detail.Headers
+				match.Headers = evidence.Headers
 			}
 
 			return match

@@ -60,10 +60,7 @@ func ProbeHTTP(
 	}
 
 	if err != nil {
-		app.TimeoutOnError(
-			app.TCPConnect,
-			err,
-		)
+		app.Fail(app.TCPConnect, err)
 
 		return models.FingerprintMatch{}
 	}
@@ -83,7 +80,9 @@ func ProbeHTTP(
 
 	requestStart := time.Now()
 
-	_, err = fmt.Fprintf(
+	app.Send(protocol)
+
+	written, err := fmt.Fprintf(
 		conn,
 		"GET / HTTP/1.0\r\n"+
 			"Host: %s\r\n"+
@@ -94,15 +93,14 @@ func ProbeHTTP(
 	)
 
 	if err != nil {
-		app.TimeoutOnError(
-			protocol,
-			err,
-		)
-
+		app.Fail(protocol, err)
 		return models.FingerprintMatch{}
 	}
 
-	app.Send(protocol)
+	if written == 0 {
+		app.Drop(protocol)
+		return models.FingerprintMatch{}
+	}
 
 	reader := bufio.NewReader(
 		io.LimitReader(
@@ -119,11 +117,7 @@ func ProbeHTTP(
 	)
 
 	if err != nil {
-		app.TimeoutOnError(
-			protocol,
-			err,
-		)
-
+		app.Fail(protocol, err)
 		return models.FingerprintMatch{}
 	}
 

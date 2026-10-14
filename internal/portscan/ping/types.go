@@ -61,4 +61,6 @@ type scanState struct {
 
 	nextTarget   int
 	nextSequence int
+
+	retrySend func(*icmpProbe) error
 }

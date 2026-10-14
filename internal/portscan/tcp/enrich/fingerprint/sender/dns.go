@@ -82,11 +82,7 @@ func ProbeDNS(
 	)
 
 	if err != nil {
-		app.TimeoutOnError(
-			app.TCPConnect,
-			err,
-		)
-
+		app.Fail(app.TCPConnect, err)
 		return models.FingerprintMatch{}
 	}
 
@@ -105,16 +101,19 @@ func ProbeDNS(
 
 	requestStart := time.Now()
 
-	if _, err = conn.Write(frame); err != nil {
-		app.TimeoutOnError(
-			app.DNSTCP,
-			err,
-		)
+	app.Send(app.DNSTCP)
 
+	written, err := conn.Write(frame)
+
+	if err != nil {
+		app.Fail(app.DNSTCP, err)
 		return models.FingerprintMatch{}
 	}
 
-	app.Send(app.DNSTCP)
+	if written != len(frame) {
+		app.Drop(app.DNSTCP)
+		return models.FingerprintMatch{}
+	}
 
 	var size [2]byte
 
@@ -122,11 +121,7 @@ func ProbeDNS(
 		conn,
 		size[:],
 	); err != nil {
-		app.TimeoutOnError(
-			app.DNSTCP,
-			err,
-		)
-
+		app.Fail(app.DNSTCP, err)
 		return models.FingerprintMatch{}
 	}
 
@@ -137,6 +132,7 @@ func ProbeDNS(
 	if n < 12+len(dnsQuestion) ||
 		n > 4096 {
 
+		app.Drop(app.DNSTCP)
 		return models.FingerprintMatch{}
 	}
 
@@ -146,11 +142,7 @@ func ProbeDNS(
 		conn,
 		response,
 	); err != nil {
-		app.TimeoutOnError(
-			app.DNSTCP,
-			err,
-		)
-
+		app.Fail(app.DNSTCP, err)
 		return models.FingerprintMatch{}
 	}
 
@@ -159,6 +151,7 @@ func ProbeDNS(
 		response[:2],
 		tx[:],
 	) {
+		app.Drop(app.DNSTCP)
 		return models.FingerprintMatch{}
 	}
 
@@ -174,6 +167,7 @@ func ProbeDNS(
 			response[4:6],
 		) != 1 {
 
+		app.Drop(app.DNSTCP)
 		return models.FingerprintMatch{}
 	}
 
@@ -183,6 +177,7 @@ func ProbeDNS(
 		response[12:12+len(dnsQuestion)],
 		dnsQuestion,
 	) {
+		app.Drop(app.DNSTCP)
 		return models.FingerprintMatch{}
 	}
 

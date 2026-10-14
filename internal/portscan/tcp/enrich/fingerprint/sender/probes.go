@@ -47,10 +47,7 @@ func ProbeRaw(
 	}
 
 	if err != nil {
-		app.TimeoutOnError(
-			app.TCPConnect,
-			err,
-		)
+		app.Fail(app.TCPConnect, err)
 
 		return nil
 	}

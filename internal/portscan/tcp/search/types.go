@@ -53,4 +53,6 @@ type scanState struct {
 
 	pauseUntil              time.Time
 	consecutiveSendFailures int
+
+	retrySend func(*pendingProbe) error
 }

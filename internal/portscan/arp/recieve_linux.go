@@ -5,11 +5,12 @@ package arp
 import (
 	"bytes"
 	"encoding/binary"
-	"ipspect/internal/network/app"
-	"ipspect/internal/network/timeout"
 	"net"
 	"syscall"
 	"time"
+
+	"ipspect/internal/network/app"
+	"ipspect/internal/network/timeout"
 )
 
 func parseReply(
@@ -106,59 +107,71 @@ func (s *scanner) receiveLoop() {
 			continue
 		}
 
-		key := ip.String()
+		s.acceptReply(ip, mac)
+	}
+}
 
-		s.mu.Lock()
+func (s *scanner) acceptReply(
+	ip net.IP,
+	mac net.HardwareAddr,
+) bool {
+	key := ip.String()
 
-		pending, expected := s.expected[key]
+	s.mu.Lock()
 
-		if !expected {
-			s.mu.Unlock()
-			continue
-		}
+	pending, expected := s.expected[key]
 
-		if _, exists := s.found[key]; exists {
-			s.mu.Unlock()
-			continue
-		}
-
-		delete(s.expected, key)
-
-		s.found[key] = arpHost{
-			ip: append(
-				net.IP(nil),
-				ip...,
-			),
-
-			mac: append(
-				net.HardwareAddr(nil),
-				mac...,
-			),
-
-			iface: s.group.iface.Name,
-		}
-
-		rtt := time.Since(
-			pending.sentAt,
-		)
-
-		firstAttempt := pending.retries == 0
-
+	if !expected {
 		s.mu.Unlock()
+		return false
+	}
 
-		if firstAttempt {
-			s.timeouts.Observe(
-				timeout.ARP,
-				s.group.iface.Name,
-				rtt,
-			)
-		}
+	if _, exists := s.found[key]; exists {
+		s.mu.Unlock()
+		return false
+	}
 
-		app.Receive(
-			app.ARP,
+	delete(s.expected, key)
+
+	s.found[key] = arpHost{
+		ip: append(
+			net.IP(nil),
+			ip...,
+		),
+
+		mac: append(
+			net.HardwareAddr(nil),
+			mac...,
+		),
+
+		iface: s.group.iface.Name,
+	}
+
+	rtt := time.Since(
+		pending.sentAt,
+	)
+
+	firstAttempt := pending.retries == 0
+
+	s.mu.Unlock()
+
+	if firstAttempt &&
+		rtt >= 0 &&
+		s.timeouts != nil {
+
+		s.timeouts.Observe(
+			timeout.ARP,
+			s.group.iface.Name,
 			rtt,
 		)
 	}
+
+	app.Receive(
+		app.ARP,
+		rtt,
+	)
+
+	return true
 }
 
 func (s *scanner) results() []arpHost {

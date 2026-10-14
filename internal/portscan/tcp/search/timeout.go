@@ -81,13 +81,19 @@ func (s *scanState) retryDue(
 
 	sentAt := time.Now()
 
-	err := s.scanner.RetrySYN(
-		pending.srcIP,
-		pending.job.ip,
-		pending.srcPort,
-		uint16(pending.job.port),
-		pending.seq,
-	)
+	var err error
+
+	if s.retrySend != nil {
+		err = s.retrySend(pending)
+	} else {
+		err = s.scanner.RetrySYN(
+			pending.srcIP,
+			pending.job.ip,
+			pending.srcPort,
+			uint16(pending.job.port),
+			pending.seq,
+		)
+	}
 
 	if err != nil {
 		if s.recoverableSendError(err) {

@@ -52,11 +52,17 @@ func (s *scanState) retryDue(
 
 	sentAt := time.Now()
 
-	err := s.scanner.send(
-		pending.ip,
-		pending.seq,
-		true,
-	)
+	var err error
+
+	if s.retrySend != nil {
+		err = s.retrySend(pending)
+	} else {
+		err = s.scanner.send(
+			pending.ip,
+			pending.seq,
+			true,
+		)
+	}
 
 	if err != nil {
 		if s.recoverableSendError(err) {

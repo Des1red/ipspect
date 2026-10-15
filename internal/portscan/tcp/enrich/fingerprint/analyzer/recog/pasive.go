@@ -1,134 +1,116 @@
 package recog
 
 import (
+	"fmt"
 	"ipspect/internal/models"
-	"strings"
+	"ipspect/internal/output"
 )
 
 func (s *Session) RecognizePassive(
 	evidence models.RecogEvidence,
 ) models.FingerprintMatch {
-	banner := strings.TrimSpace(evidence.Banner)
-	upper := strings.ToUpper(banner)
+	output.Log(
+		"debug",
+		fmt.Sprintf(
+			"tcp.recog.passive: start source=%q service=%q hint=%q banner=%q headers=%d fields=%d",
+			evidence.Source,
+			evidence.Service,
+			evidence.ServiceHint,
+			evidence.Banner,
+			len(evidence.Headers),
+			len(evidence.Fields),
+		),
+	)
 
-	// SSH software identification.
-	if strings.HasPrefix(upper, "SSH-") {
-		parts := strings.SplitN(banner, "-", 3)
+	// Protocol-specific greeting normalization.
+	match, handled := s.matchGreeting(evidence)
 
-		if len(parts) == 3 &&
-			(parts[1] == "2.0" ||
-				parts[1] == "1.99" ||
-				parts[1] == "1.5") {
-
-			match := s.matchField(
-				"ssh.banner",
-				parts[2],
-				evidence.Service,
-			)
-
-			if match.Service != "" {
-				match.Confidence = "high"
-				match.Banner = banner
-
-				return match
-			}
-		}
-	}
-
-	// FTP and SMTP share the 220 greeting.
-	if strings.HasPrefix(banner, "220 ") ||
-		strings.HasPrefix(banner, "220-") {
-
-		value := strings.TrimSpace(banner[4:])
-
-		ftp := s.matchField(
-			"ftp.banner",
-			value,
-			"",
+	if handled {
+		output.Log(
+			"debug",
+			fmt.Sprintf(
+				"tcp.recog.passive: greeting handled matched=%t service=%q product=%q",
+				match.Service != "",
+				match.Service,
+				match.Product,
+			),
 		)
-
-		smtp := s.matchField(
-			"smtp.banner",
-			value,
-			"",
-		)
-
-		if evidence.Service != "" &&
-			protocolFamily(evidence.Service) != "ftp" &&
-			protocolFamily(evidence.Service) != "smtp" {
-
-			return models.FingerprintMatch{}
-		}
-
-		if ftp.Service != "" &&
-			(evidence.Service == "" ||
-				protocolFamily(evidence.Service) == "ftp") &&
-			(smtp.Service == "" ||
-				protocolFamily(evidence.Service) == "ftp") {
-
-			if strings.Contains(upper, "FTP") &&
-				!strings.Contains(upper, "SMTP") {
-
-				ftp.Confidence = "high"
-			}
-
-			ftp.Banner = banner
-
-			return ftp
-		}
-
-		if smtp.Service != "" &&
-			(evidence.Service == "" ||
-				protocolFamily(evidence.Service) == "smtp") &&
-			(ftp.Service == "" ||
-				protocolFamily(evidence.Service) == "smtp") {
-
-			if strings.Contains(upper, "SMTP") {
-				smtp.Confidence = "high"
-			}
-
-			smtp.Banner = banner
-
-			return smtp
-		}
-
-		// An ambiguous 220 greeting remains unknown.
-		return models.FingerprintMatch{}
-	}
-
-	// HTTP Server header.
-	if strings.HasPrefix(upper, "HTTP/") ||
-		protocolFamily(evidence.Service) == "http" {
-
-		value := serverHeader(evidence.Headers)
-
-		if value != "" {
-			match := s.matchField(
-				"http_header.server",
-				value,
-				evidence.Service,
-			)
-
-			if match.Service != "" {
-				match.Confidence = "high"
-				match.Banner = banner
-				match.Headers = evidence.Headers
-
-				return match
-			}
-		}
-	}
-
-	// Fields supplied by protocol-specific
-	// extractors and future decoders.
-	if match := s.matchTypedFields(
-		evidence,
-	); match.Service != "" {
 
 		return match
 	}
 
-	// Generic routing based on the loaded
-	// database's protocol metadata.
-	return s.matchProtocolBanner(evidence)
+	if match.Service != "" {
+		output.Log(
+			"debug",
+			fmt.Sprintf(
+				"tcp.recog.passive: greeting identified service=%q product=%q",
+				match.Service,
+				match.Product,
+			),
+		)
+
+		return match
+	}
+
+	// HTTP header signatures from the registry.
+	output.Log(
+		"debug",
+		"tcp.recog.passive: checking HTTP header signatures",
+	)
+
+	match = s.matchHTTPHeaders(evidence)
+
+	if match.Service != "" {
+		output.Log(
+			"debug",
+			fmt.Sprintf(
+				"tcp.recog.passive: HTTP identified service=%q product=%q",
+				match.Service,
+				match.Product,
+			),
+		)
+
+		return match
+	}
+
+	// Explicit fields supplied by other decoders.
+	output.Log(
+		"debug",
+		"tcp.recog.passive: checking typed evidence",
+	)
+
+	match = s.matchTypedFields(evidence)
+
+	if match.Service != "" {
+		output.Log(
+			"debug",
+			fmt.Sprintf(
+				"tcp.recog.passive: typed evidence identified service=%q product=%q",
+				match.Service,
+				match.Product,
+			),
+		)
+
+		return match
+	}
+
+	// Additional full-banner databases.
+	output.Log(
+		"debug",
+		"tcp.recog.passive: checking compatible banner databases",
+	)
+
+	match = s.matchProtocolBanner(evidence)
+
+	output.Log(
+		"debug",
+		fmt.Sprintf(
+			"tcp.recog.passive: completed matched=%t service=%q product=%q",
+			match.Service != "",
+			match.Service,
+			match.Product,
+		),
+	)
+
+	return match
 }

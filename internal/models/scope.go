@@ -2,6 +2,8 @@ package models
 
 import "net"
 
+var DEBUG = true
+
 type TargetRange struct {
 	Multi  bool
 	Single bool

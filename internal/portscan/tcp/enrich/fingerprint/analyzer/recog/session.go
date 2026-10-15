@@ -1,6 +1,10 @@
 package recog
 
-import "ipspect/internal/models"
+import (
+	"fmt"
+	"ipspect/internal/models"
+	"ipspect/internal/output"
+)
 
 type lookupKey struct {
 	key     string
@@ -24,8 +28,30 @@ func (s *Session) lookup(
 	}
 
 	if result, exists := s.matches[id]; exists {
+		output.Log(
+			"debug",
+			fmt.Sprintf(
+				"tcp.recog.cache: HIT db=%q service=%q input=%q matched=%t product=%q",
+				key,
+				service,
+				input,
+				result.Service != "",
+				result.Product,
+			),
+		)
+
 		return result
 	}
+
+	output.Log(
+		"debug",
+		fmt.Sprintf(
+			"tcp.recog.cache: MISS db=%q service=%q input=%q",
+			key,
+			service,
+			input,
+		),
+	)
 
 	result := matchRecog(
 		key,
@@ -40,6 +66,16 @@ func (s *Session) lookup(
 	}
 
 	s.matches[id] = result
+
+	output.Log(
+		"debug",
+		fmt.Sprintf(
+			"tcp.recog.cache: STORED db=%q matched=%t product=%q",
+			key,
+			result.Service != "",
+			result.Product,
+		),
+	)
 
 	return result
 }

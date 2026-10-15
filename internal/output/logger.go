@@ -51,6 +51,8 @@ func Log(
 	case "result":
 		logResult()
 
+	case "debug":
+		logDebug(value)
 	default:
 		fmt.Fprintln(
 			stageOutput,
@@ -364,4 +366,15 @@ func logFingerprint() {
 			}
 		}
 	})
+}
+
+func logDebug(value string) {
+	if !models.DEBUG {
+		return
+	}
+
+	fmt.Fprintln(
+		stageOutput,
+		"[DEBUG]\t"+value,
+	)
 }

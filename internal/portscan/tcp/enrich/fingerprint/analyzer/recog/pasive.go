@@ -8,62 +8,63 @@ import (
 func (s *Session) RecognizePassive(
 	evidence models.RecogEvidence,
 ) models.FingerprintMatch {
-	banner := strings.TrimSpace(
-		evidence.Banner,
-	)
-
+	banner := strings.TrimSpace(evidence.Banner)
 	upper := strings.ToUpper(banner)
 
+	// SSH software identification.
 	if strings.HasPrefix(upper, "SSH-") {
-		parts := strings.SplitN(
-			banner,
-			"-",
-			3,
-		)
+		parts := strings.SplitN(banner, "-", 3)
 
 		if len(parts) == 3 &&
 			(parts[1] == "2.0" ||
 				parts[1] == "1.99" ||
 				parts[1] == "1.5") {
 
-			match := s.lookup(
+			match := s.matchField(
 				"ssh.banner",
-				"ssh",
 				parts[2],
+				evidence.Service,
 			)
 
 			if match.Service != "" {
 				match.Confidence = "high"
 				match.Banner = banner
-			}
 
-			return match
+				return match
+			}
 		}
 	}
 
+	// FTP and SMTP share the 220 greeting.
 	if strings.HasPrefix(banner, "220 ") ||
 		strings.HasPrefix(banner, "220-") {
 
-		value := strings.TrimSpace(
-			banner[4:],
-		)
+		value := strings.TrimSpace(banner[4:])
 
-		ftp := s.lookup(
+		ftp := s.matchField(
 			"ftp.banner",
-			"ftp",
 			value,
+			"",
 		)
 
-		smtp := s.lookup(
+		smtp := s.matchField(
 			"smtp.banner",
-			"smtp",
 			value,
+			"",
 		)
 
-		// FTP and SMTP share greeting code 220.
-		// Do not guess when both databases match.
+		if evidence.Service != "" &&
+			protocolFamily(evidence.Service) != "ftp" &&
+			protocolFamily(evidence.Service) != "smtp" {
+
+			return models.FingerprintMatch{}
+		}
+
 		if ftp.Service != "" &&
-			smtp.Service == "" {
+			(evidence.Service == "" ||
+				protocolFamily(evidence.Service) == "ftp") &&
+			(smtp.Service == "" ||
+				protocolFamily(evidence.Service) == "ftp") {
 
 			if strings.Contains(upper, "FTP") &&
 				!strings.Contains(upper, "SMTP") {
@@ -77,7 +78,10 @@ func (s *Session) RecognizePassive(
 		}
 
 		if smtp.Service != "" &&
-			ftp.Service == "" {
+			(evidence.Service == "" ||
+				protocolFamily(evidence.Service) == "smtp") &&
+			(ftp.Service == "" ||
+				protocolFamily(evidence.Service) == "smtp") {
 
 			if strings.Contains(upper, "SMTP") {
 				smtp.Confidence = "high"
@@ -88,29 +92,43 @@ func (s *Session) RecognizePassive(
 			return smtp
 		}
 
+		// An ambiguous 220 greeting remains unknown.
 		return models.FingerprintMatch{}
 	}
 
-	if strings.HasPrefix(upper, "HTTP/") {
-		if value := serverHeader(
-			evidence.Headers,
-		); value != "" {
+	// HTTP Server header.
+	if strings.HasPrefix(upper, "HTTP/") ||
+		protocolFamily(evidence.Service) == "http" {
 
-			match := s.lookup(
+		value := serverHeader(evidence.Headers)
+
+		if value != "" {
+			match := s.matchField(
 				"http_header.server",
-				"http",
 				value,
+				evidence.Service,
 			)
 
 			if match.Service != "" {
 				match.Confidence = "high"
 				match.Banner = banner
 				match.Headers = evidence.Headers
-			}
 
-			return match
+				return match
+			}
 		}
 	}
 
-	return models.FingerprintMatch{}
+	// Fields supplied by protocol-specific
+	// extractors and future decoders.
+	if match := s.matchTypedFields(
+		evidence,
+	); match.Service != "" {
+
+		return match
+	}
+
+	// Generic routing based on the loaded
+	// database's protocol metadata.
+	return s.matchProtocolBanner(evidence)
 }

@@ -30,8 +30,11 @@ func OpenPorts(
 //go:embed data/recog/*.xml
 var recogFiles embed.FS
 
-func OpenRecog(name string) (fs.File, error) {
-	return recogFiles.Open("data/recog/" + name)
+func RecogFS() (fs.FS, error) {
+	return fs.Sub(
+		recogFiles,
+		"data/recog",
+	)
 }
 
 //go:embed data/requests/*.yaml

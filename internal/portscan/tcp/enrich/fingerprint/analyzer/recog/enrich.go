@@ -8,49 +8,21 @@ import (
 func (s *Session) Enrich(
 	match models.FingerprintMatch,
 ) models.FingerprintMatch {
-	var key, value string
-
-	switch match.Service {
-	case "ssh":
-		parts := strings.SplitN(
-			strings.TrimSpace(match.Banner),
-			"-",
-			3,
-		)
-
-		if len(parts) == 3 &&
-			parts[0] == "SSH" {
-
-			key = "ssh.banner"
-			value = parts[2]
-		}
-
-	case "ftp", "smtp":
-		banner := strings.TrimSpace(match.Banner)
-
-		if strings.HasPrefix(banner, "220 ") ||
-			strings.HasPrefix(banner, "220-") {
-
-			key = match.Service + ".banner"
-			value = strings.TrimSpace(banner[4:])
-		}
-
-	case "http", "https":
-		key = "http_header.server"
-		value = serverHeader(match.Headers)
-	}
-
-	if key == "" || value == "" {
+	if match.Service == "" {
 		return match
 	}
 
-	found := s.lookup(
-		key,
-		match.Service,
-		value,
-	)
+	evidence := models.RecogEvidence{
+		Service: match.Service,
+		Banner:  match.Banner,
+		Headers: match.Headers,
+	}
 
-	if found.Service == "" {
+	found := s.RecognizePassive(evidence)
+
+	if found.Service == "" ||
+		found.Service != match.Service {
+
 		return match
 	}
 
@@ -58,11 +30,13 @@ func (s *Session) Enrich(
 		match.Product = found.Product
 	}
 
-	if match.Evidence != "" {
-		match.Evidence += "; "
-	}
+	if found.Evidence != "" {
+		if match.Evidence != "" {
+			match.Evidence += "; "
+		}
 
-	match.Evidence += found.Evidence
+		match.Evidence += found.Evidence
+	}
 
 	return match
 }

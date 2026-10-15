@@ -12,7 +12,7 @@ func (s *Session) RecognizeRaw(
 	data := evidence.RawResponse
 
 	if len(data) == 0 {
-		return models.FingerprintMatch{}
+		return s.RecognizePassive(evidence)
 	}
 
 	line := data
@@ -30,15 +30,15 @@ func (s *Session) RecognizeRaw(
 			b != '\t' &&
 			(b < 0x20 || b > 0x7e) {
 
-			return models.FingerprintMatch{}
+			// Binary responses may still have
+			// fields extracted by a decoder.
+			return s.RecognizePassive(evidence)
 		}
 	}
 
-	return s.RecognizePassive(
-		models.RecogEvidence{
-			Banner: strings.TrimSpace(
-				string(line),
-			),
-		},
+	evidence.Banner = strings.TrimSpace(
+		string(line),
 	)
+
+	return s.RecognizePassive(evidence)
 }

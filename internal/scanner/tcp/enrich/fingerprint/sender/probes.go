@@ -2,7 +2,7 @@ package sender
 
 import (
 	"crypto/tls"
-	"ipspect/internal/database/load/requests"
+	"ipspect/internal/analyzer"
 	"ipspect/internal/network/app"
 	"net"
 	"strconv"
@@ -12,7 +12,7 @@ import (
 func ProbeRaw(
 	ip string,
 	port int,
-	request requests.Probe,
+	request analyzer.Probe,
 ) []byte {
 	address := net.JoinHostPort(
 		ip,
@@ -48,7 +48,6 @@ func ProbeRaw(
 
 	if err != nil {
 		app.Fail(app.TCPConnect, err)
-
 		return nil
 	}
 
@@ -72,7 +71,6 @@ func ProbeRaw(
 
 		if err != nil ||
 			n != len(request.Payload) {
-
 			return nil
 		}
 	}

@@ -1,11 +1,10 @@
 package sender
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/binary"
-	"fmt"
 	"io"
+	"ipspect/internal/analyzer"
 	"ipspect/internal/models"
 	"ipspect/internal/network/app"
 	"net"
@@ -23,6 +22,7 @@ var dnsQuestion = []byte{
 func ProbeDNS(
 	ip string,
 	port int,
+	engine *analyzer.Engine,
 ) models.FingerprintMatch {
 	var tx [2]byte
 
@@ -146,59 +146,15 @@ func ProbeDNS(
 		return models.FingerprintMatch{}
 	}
 
-	// Validate transaction ID.
-	if !bytes.Equal(
-		response[:2],
-		tx[:],
-	) {
-		app.Drop(app.DNSTCP)
-		return models.FingerprintMatch{}
-	}
-
-	flags := binary.BigEndian.Uint16(
-		response[2:4],
-	)
-
-	// Must be a standard DNS response,
-	// with the expected question count.
-	if flags&0x8000 == 0 ||
-		flags&0x7800 != 0 ||
-		binary.BigEndian.Uint16(
-			response[4:6],
-		) != 1 {
-
-		app.Drop(app.DNSTCP)
-		return models.FingerprintMatch{}
-	}
-
-	// Require the server to echo the
-	// original question.
-	if !bytes.EqualFold(
-		response[12:12+len(dnsQuestion)],
+	match, valid := engine.IdentifyDNSResponse(
+		response,
+		tx,
 		dnsQuestion,
-	) {
-		app.Drop(app.DNSTCP)
-		return models.FingerprintMatch{}
-	}
-
-	rcode := int(flags & 0x000f)
-
-	names := []string{
-		"NOERROR",
-		"FORMERR",
-		"SERVFAIL",
-		"NXDOMAIN",
-		"NOTIMP",
-		"REFUSED",
-	}
-
-	label := fmt.Sprintf(
-		"%d",
-		rcode,
 	)
 
-	if rcode < len(names) {
-		label = names[rcode]
+	if !valid {
+		app.Drop(app.DNSTCP)
+		return models.FingerprintMatch{}
 	}
 
 	app.Receive(
@@ -206,11 +162,5 @@ func ProbeDNS(
 		time.Since(requestStart),
 	)
 
-	return models.FingerprintMatch{
-		Service:    "dns",
-		Confidence: "high",
-
-		Evidence: "Valid DNS-over-TCP response " +
-			"(RCODE=" + label + ")",
-	}
+	return match
 }

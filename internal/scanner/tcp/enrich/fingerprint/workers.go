@@ -1,9 +1,7 @@
 package fingerprint
 
 import (
-	"fmt"
 	"ipspect/internal/models"
-	"ipspect/internal/output"
 	"ipspect/internal/scanner/tcp/enrich/fingerprint/flow"
 	"sync"
 )
@@ -16,14 +14,6 @@ type fingerprintJob struct {
 }
 
 func runFingerprintWorkers() {
-	output.Log(
-		"debug",
-		fmt.Sprintf(
-			"tcp.fingerprint: starting %d workers",
-			fingerprintWorkers,
-		),
-	)
-
 	jobs := make(
 		chan fingerprintJob,
 		fingerprintWorkers,
@@ -48,8 +38,6 @@ func runFingerprintWorkers() {
 		}()
 	}
 
-	queued := 0
-
 	for h := range models.LOOT.Hosts {
 		host := &models.LOOT.Hosts[h]
 
@@ -62,24 +50,9 @@ func runFingerprintWorkers() {
 				hostIndex:   h,
 				detailIndex: i,
 			}
-
-			queued++
 		}
 	}
 
-	output.Log(
-		"debug",
-		fmt.Sprintf(
-			"tcp.fingerprint: queued %d open ports",
-			queued,
-		),
-	)
-
 	close(jobs)
 	wg.Wait()
-
-	output.Log(
-		"debug",
-		"tcp.fingerprint: all workers completed",
-	)
 }

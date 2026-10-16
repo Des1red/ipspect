@@ -1,7 +1,7 @@
 package enrich
 
 import (
-	"ipspect/internal/database/load"
+	"ipspect/internal/analyzer"
 	"ipspect/internal/models"
 	"ipspect/internal/network/app"
 	"sync"
@@ -9,12 +9,10 @@ import (
 
 const enrichWorkers = 32
 
-func Controller(hosts []models.ARPResult) error {
+func Controller(hosts []models.ARPResult) {
 	if len(hosts) == 0 {
-		return nil
+		return
 	}
-
-	vendorErr := load.LoadIEEE()
 
 	app.Start(app.DNS)
 	app.Start(app.NetBIOS)
@@ -27,6 +25,7 @@ func Controller(hosts []models.ARPResult) error {
 	var wg sync.WaitGroup
 
 	workers := enrichWorkers
+
 	if len(hosts) < workers {
 		workers = len(hosts)
 	}
@@ -40,11 +39,11 @@ func Controller(hosts []models.ARPResult) error {
 			for index := range jobs {
 				host := &hosts[index]
 
-				if vendorErr == nil {
-					host.Vendor = load.LookupVendor(
-						host.MAC,
-					)
-				}
+				engine := analyzer.New()
+
+				host.Vendor = engine.LookupVendor(
+					host.MAC,
+				)
 
 				host.PTRName = lookupPTR(
 					host.IP,
@@ -52,6 +51,7 @@ func Controller(hosts []models.ARPResult) error {
 
 				host.NetBIOSName = lookupNetBIOS(
 					host.IP,
+					engine,
 				)
 
 				host.Hostname = host.PTRName
@@ -69,6 +69,4 @@ func Controller(hosts []models.ARPResult) error {
 
 	close(jobs)
 	wg.Wait()
-
-	return vendorErr
 }

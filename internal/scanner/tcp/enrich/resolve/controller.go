@@ -1,7 +1,7 @@
 package resolve
 
 import (
-	"ipspect/internal/analyzer/result"
+	"ipspect/internal/analyzer"
 	"ipspect/internal/models"
 )
 
@@ -16,7 +16,9 @@ func Controller() {
 				continue
 			}
 
-			result.ResolveService(detail)
+			engine := analyzer.New()
+
+			engine.ResolveService(detail)
 		}
 	}
 }

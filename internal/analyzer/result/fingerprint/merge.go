@@ -1,4 +1,4 @@
-package result
+package fingerprint
 
 import (
 	"ipspect/internal/models"

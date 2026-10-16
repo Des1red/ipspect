@@ -5,12 +5,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"ipspect/internal/analyzer"
 	"ipspect/internal/models"
 	"ipspect/internal/network/app"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -20,6 +20,7 @@ func ProbeHTTP(
 	ip string,
 	port int,
 	secure bool,
+	engine *analyzer.Engine,
 ) models.FingerprintMatch {
 	address := net.JoinHostPort(
 		ip,
@@ -61,7 +62,6 @@ func ProbeHTTP(
 
 	if err != nil {
 		app.Fail(app.TCPConnect, err)
-
 		return models.FingerprintMatch{}
 	}
 
@@ -128,9 +128,7 @@ func ProbeHTTP(
 
 	defer resp.Body.Close()
 
-	// An HTTPS-only server may return a
-	// plaintext HTTP 400 diagnostic.
-	// This does not confirm HTTP service.
+	// Reject plaintext HTTPS-only diagnostics.
 	if !secure &&
 		resp.StatusCode == http.StatusBadRequest {
 
@@ -141,77 +139,13 @@ func ProbeHTTP(
 			),
 		)
 
-		lower := strings.ToLower(
-			string(body),
-		)
-
-		if strings.Contains(
-			lower,
-			"http request to an https server",
-		) ||
-			strings.Contains(
-				lower,
-				"plain http request was sent to https port",
-			) {
-
+		if engine.IsHTTPSOnlyDiagnostic(body) {
 			return models.FingerprintMatch{}
 		}
 	}
 
-	service := "http"
-	evidence := "HTTP response to active request"
-
-	if secure {
-		service = "https"
-		evidence = "HTTP response over TLS"
-	}
-
-	headers := make(
-		map[string][]string,
-		len(resp.Header),
+	return engine.IdentifyHTTPResponse(
+		resp,
+		secure,
 	)
-
-	for name, values := range resp.Header {
-		if strings.EqualFold(
-			name,
-			"Set-Cookie",
-		) ||
-			strings.EqualFold(
-				name,
-				"WWW-Authenticate",
-			) ||
-			strings.EqualFold(
-				name,
-				"Proxy-Authenticate",
-			) {
-
-			headers[name] = []string{
-				"[redacted]",
-			}
-
-			continue
-		}
-
-		headers[name] = append(
-			[]string(nil),
-			values...,
-		)
-	}
-
-	return models.FingerprintMatch{
-		Service:    service,
-		Confidence: "high",
-
-		Product: resp.Header.Get(
-			"Server",
-		),
-
-		Evidence: evidence,
-
-		Banner: resp.Proto +
-			" " +
-			resp.Status,
-
-		Headers: headers,
-	}
 }

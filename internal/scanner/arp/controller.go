@@ -58,14 +58,9 @@ func Controller() error {
 		"ARP Device Enrichment",
 	)
 
-	if err := arpenrich.Controller(
+	arpenrich.Controller(
 		models.LOOT.ARPResults,
-	); err != nil && firstErr == nil {
-		firstErr = fmt.Errorf(
-			"ARP device enrichment: %w",
-			err,
-		)
-	}
+	)
 
 	enrichTimer.Stop()
 

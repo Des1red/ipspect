@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"ipspect/internal/analyzer"
 	"ipspect/internal/models"
 	"ipspect/internal/network/app"
 	"ipspect/internal/output"
@@ -8,6 +9,14 @@ import (
 )
 
 func Run() {
+	if err := analyzer.Load(); err != nil {
+		output.Log(
+			"error",
+			"analyzer initialization failed: "+err.Error(),
+		)
+		return
+	}
+
 	stages := newStageCounter()
 
 	if models.ActiveEngines.ICMP {

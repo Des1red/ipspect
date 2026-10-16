@@ -6,7 +6,7 @@ import (
 	"ipspect/internal/models"
 	"ipspect/internal/network/app"
 	"ipspect/internal/output"
-	"ipspect/internal/portscan"
+	"ipspect/internal/scanner"
 	"ipspect/internal/time"
 )
 
@@ -35,7 +35,7 @@ func scan() {
 
 	internal.Target()
 
-	portscan.Run()
+	scanner.Run()
 	if verbose {
 		statistics()
 	}

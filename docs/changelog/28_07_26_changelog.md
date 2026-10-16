@@ -10,10 +10,10 @@ cmd/
   run.go          — Run(): entry point, orchestrates the full flow
   flags.go        — flagcheck(), install/uninstall/help/version wiring
 internal/
-  ping.go         — Ping(): ICMP alive check
+  icmp.go         — Ping(): ICMP alive check
   convert.go      — convert(): string -> net.IP, validates and stores target
   check.go        — check(): raw ICMP echo (IPv4 + IPv6)
-  portscan.go      — PortScan(), port_search(), sortPorts()
+  scanner.go      — scanner(), port_search(), sortPorts()
   enrich.go        — enrich(), probeHTTP(), lookupService(), commonPorts table
   bootstrap/
     install.go     — Install(), Uninstall(): build + copy binary to /usr/local/bin
@@ -51,8 +51,8 @@ const Version = "0.1.0"
 
 1. **`flagcheck()`** — ipspects `os.Args[1]`. If it matches `install`, `uninstall`, `help`, or `version`, handles it and exits immediately, skipping the scan flow entirely. Anything unrecognized prints an error plus help text and exits. No flag at all falls through to the scan flow below.
 2. **`target()`** — prompts for an IP string on stdin, loops until non-empty input is given, trims whitespace, stores it in `models.INFO.TargetName`.
-3. **`ping()`** — calls `internal.Ping()`, prints the alive/dead message, exits if the host is unreachable or the IP was invalid.
-4. **`ports()`** — calls `internal.PortScan()`, exits if no open ports were found.
+3. **`icmp()`** — calls `internal.Ping()`, prints the alive/dead message, exits if the host is unreachable or the IP was invalid.
+4. **`ports()`** — calls `internal.scanner()`, exits if no open ports were found.
 5. **`result()`** — prints a formatted table of `models.LOOT.Details` using `text/tabwriter`.
 
 ## Ping (`internal.Ping`, `convert`, `check`)
@@ -66,11 +66,11 @@ const Version = "0.1.0"
 
 **Requires root** — raw ICMP sockets need elevated privileges (or `CAP_NET_RAW` via `setcap` on Linux).
 
-## Port scan (`internal.PortScan`, `port_search`, `sortPorts`)
+## Port scan (`internal.scanner`, `port_search`, `sortPorts`)
 
 - `port_search()` — concurrent TCP connect scan across ports 1–65535. Uses a **fixed worker pool of 500 goroutines** pulling from a buffered channel, rather than spawning 65535 goroutines at once (which would risk exhausting file descriptors). A mutex guards writes to `models.LOOT.Ports`/`Details` since multiple goroutines append concurrently. Each dial uses a 500ms timeout.
 - `sortPorts()` — sorts both `models.LOOT.Ports` and `models.LOOT.Details` by port number ascending. Needed because concurrent scanning means ports are no longer discovered in numeric order (unlike the original sequential version) — sorting restores a predictable, readable order for output. Mutates the package-level slices in place, so the result stays sorted for any later reader (e.g. `result()`).
-- `PortScan()` — orchestrates: runs `port_search()`, prints "no open ports found" and returns `false` if nothing was found, otherwise sorts, prints a comma-separated summary line of open ports, runs `enrich()`, and returns `true`.
+- `scanner()` — orchestrates: runs `port_search()`, prints "no open ports found" and returns `false` if nothing was found, otherwise sorts, prints a comma-separated summary line of open ports, runs `enrich()`, and returns `true`.
 
 ## Enrichment (`internal.enrich`, `probeHTTP`, `lookupService`)
 

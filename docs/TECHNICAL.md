@@ -87,7 +87,7 @@ The ICMP and TCP schedulers handle transient `ENOBUFS`/`EAGAIN` send failures by
 
 ## 3. ICMP discovery
 
-Implementation: `internal/portscan/ping/`.
+Implementation: `internal/scanner/icmp/`.
 
 The engine sends ICMP Echo requests to the selected addresses using raw sockets. Replies are matched using the ICMP identifier, sequence number, and source IP. Up to 500 probes can be pending while actual transmissions are paced at 50 packets/second.
 
@@ -99,7 +99,7 @@ The engine keeps results in `models.LOOT.ICMPReachable`.
 
 ## 4. ARP discovery and enrichment
 
-Implementation: `internal/portscan/arp/` and `internal/portscan/arp/enrich/`.
+Implementation: `internal/scanner/arp/` and `internal/scanner/arp/enrich/`.
 
 ARP uses Linux `AF_PACKET` raw sockets on eligible directly connected interfaces. It groups destinations by interface, sends ARP requests, and validates replies against the local target IP/MAC and pending requests. A successful reply records the responding IPv4 address, the ARP payload's sender MAC and the receiving interface.
 
@@ -125,7 +125,7 @@ ARP cannot normally discover addresses behind a router because ordinary routing 
 Implementation:
 
 ```text
-internal/portscan/tcp/
+internal/scanner/tcp/
   search/   Target/port cursor, scheduler, retries, reply classification
   probe/    Raw socket, packet creation, checksums, SYN/RST transmission, receiver
   enrich/   TCP banner, IANA lookup, fingerprinting, service resolution
@@ -263,8 +263,8 @@ ipspect/
       app/                   Counters, RTT, diagnostics and error classification
       timeout/               Adaptive RTT estimator and backoff
     output/                  Terminal formatting and Markdown reporting
-    portscan/
-      ping/                  ICMP discovery
+    scanner/
+      icmp/                  ICMP discovery
       arp/
         enrich/              IEEE, PTR, NetBIOS device enrichment
       tcp/
@@ -289,10 +289,10 @@ IEEE MAC assignment data and IANA service-name data are embedded locally so scan
 go test ./...
 
 # Race detection on network and scanning packages
-go test -race ./internal/network/... ./internal/portscan/...
+go test -race ./internal/network/... ./internal/scanner/...
 
 # Repeat regression tests to expose intermittent failures
-go test -count=20 ./internal/network/... ./internal/portscan/...
+go test -count=20 ./internal/network/... ./internal/scanner/...
 ```
 
 The regression tests cover ARP expiry, queued retries and late replies; ICMP congestion/retry accounting and final timeouts; TCP late RST-ACK replies, retry send failures and filtered classification; and network counter consistency. They exercise state-machine behavior without opening raw sockets. Integration behavior still depends on the running kernel, routing, network conditions and target behavior.

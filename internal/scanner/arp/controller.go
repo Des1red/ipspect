@@ -1,0 +1,73 @@
+package arp
+
+import (
+	"fmt"
+	"ipspect/internal/models"
+	arpenrich "ipspect/internal/scanner/arp/enrich"
+	scantime "ipspect/internal/time"
+)
+
+func Controller() error {
+	models.LOOT.ARPReachable = nil
+	models.LOOT.ARPResults = nil
+
+	if len(models.INFO.Targets) == 0 {
+		return nil
+	}
+
+	scanTimer := scantime.New("ARP Scanning")
+
+	groups, err := localInterfaces(
+		models.INFO.Targets,
+	)
+
+	if err != nil {
+		scanTimer.Stop()
+		return err
+	}
+
+	found := make(
+		map[string]arpHost,
+	)
+
+	var firstErr error
+
+	for _, group := range groups {
+		addresses, err := scanInterface(
+			group,
+		)
+
+		if err != nil && firstErr == nil {
+			firstErr = fmt.Errorf(
+				"ARP on %s: %w",
+				group.iface.Name,
+				err,
+			)
+		}
+
+		for _, host := range addresses {
+			found[host.ip.String()] = host
+		}
+	}
+
+	storeResults(found)
+
+	scanTimer.Stop()
+
+	enrichTimer := scantime.New(
+		"ARP Device Enrichment",
+	)
+
+	if err := arpenrich.Controller(
+		models.LOOT.ARPResults,
+	); err != nil && firstErr == nil {
+		firstErr = fmt.Errorf(
+			"ARP device enrichment: %w",
+			err,
+		)
+	}
+
+	enrichTimer.Stop()
+
+	return firstErr
+}

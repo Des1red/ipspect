@@ -22,6 +22,7 @@ var requestServices = map[string]string{
 	"rtsp":       "rtsp",
 	"mqtt":       "mqtt",
 	"kafka":      "kafka",
+	"jdwp":       "jdwp",
 	"zookeeper":  "zookeeper",
 	"rsync":      "rsync",
 	"smb":        "smb",
@@ -59,9 +60,7 @@ func hasDetectionTag(tags string) bool {
 	return false
 }
 
-func normalizeCondition(
-	value string,
-) (string, bool) {
+func normalizeCondition(value string) (string, bool) {
 	switch strings.ToLower(value) {
 	case "", "or":
 		return "or", true
@@ -72,10 +71,7 @@ func normalizeCondition(
 	return "", false
 }
 
-func appendUniqueBool(
-	values []bool,
-	value bool,
-) []bool {
+func appendUniqueBool(values []bool, value bool) []bool {
 	for _, current := range values {
 		if current == value {
 			return values
@@ -89,14 +85,9 @@ func parseRequestPorts(value string) []int {
 	var ports []int
 
 	for _, part := range strings.Split(value, ",") {
-		port, err := strconv.Atoi(
-			strings.TrimSpace(part),
-		)
+		port, err := strconv.Atoi(strings.TrimSpace(part))
 
-		if err != nil ||
-			port < 1 ||
-			port > 65535 {
-
+		if err != nil || port < 1 || port > 65535 {
 			continue
 		}
 

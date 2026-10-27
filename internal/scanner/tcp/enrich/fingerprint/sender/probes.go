@@ -9,22 +9,11 @@ import (
 	"time"
 )
 
-func ProbeRaw(
-	ip string,
-	port int,
-	request analyzer.Probe,
-) []byte {
-	address := net.JoinHostPort(
-		ip,
-		strconv.Itoa(port),
-	)
-
-	dialer := &net.Dialer{
-		Timeout: probeTimeout,
-	}
+func ProbeRaw(ip string, port int, request analyzer.Probe) []byte {
+	address := net.JoinHostPort(ip, strconv.Itoa(port))
+	dialer := &net.Dialer{Timeout: probeTimeout}
 
 	start := time.Now()
-
 	app.Send(app.TCPConnect)
 
 	var conn net.Conn
@@ -35,15 +24,10 @@ func ProbeRaw(
 			dialer,
 			"tcp",
 			address,
-			&tls.Config{
-				InsecureSkipVerify: true,
-			},
+			&tls.Config{InsecureSkipVerify: true},
 		)
 	} else {
-		conn, err = dialer.Dial(
-			"tcp",
-			address,
-		)
+		conn, err = dialer.Dial("tcp", address)
 	}
 
 	if err != nil {
@@ -51,43 +35,85 @@ func ProbeRaw(
 		return nil
 	}
 
-	app.Receive(
-		app.TCPConnect,
-		time.Since(start),
-	)
-
+	app.Receive(app.TCPConnect, time.Since(start))
 	defer conn.Close()
 
-	if err := conn.SetDeadline(
-		time.Now().Add(probeTimeout),
-	); err != nil {
+	deadline := time.Now().Add(probeTimeout)
+	if err := conn.SetDeadline(deadline); err != nil {
 		return nil
 	}
 
-	if len(request.Payload) > 0 {
-		n, err := conn.Write(
-			request.Payload,
-		)
-
-		if err != nil ||
-			n != len(request.Payload) {
+	if len(request.Exchanges) == 0 {
+		if !writeProbe(conn, request.Payload) {
 			return nil
 		}
+		return readProbe(conn, request.ReadSize, deadline)
 	}
 
-	buffer := make(
-		[]byte,
-		request.ReadSize,
-	)
+	response := make([]byte, 0, 4096)
 
-	n, _ := conn.Read(buffer)
+	for _, exchange := range request.Exchanges {
+		if !writeProbe(conn, exchange.Payload) {
+			return response
+		}
 
+		remaining := 8192 - len(response)
+		if remaining <= 0 {
+			break
+		}
+
+		readSize := exchange.ReadSize
+		if readSize > remaining {
+			readSize = remaining
+		}
+
+		response = append(
+			response,
+			readProbe(conn, readSize, deadline)...,
+		)
+	}
+
+	return response
+}
+
+func writeProbe(conn net.Conn, payload []byte) bool {
+	for len(payload) > 0 {
+		n, err := conn.Write(payload)
+		if err != nil || n == 0 {
+			return false
+		}
+		payload = payload[n:]
+	}
+
+	return true
+}
+
+func readProbe(conn net.Conn, size int, deadline time.Time) []byte {
+	if size <= 0 {
+		size = 1024
+	}
+
+	buffer := make([]byte, size)
+	n, err := conn.Read(buffer)
 	if n == 0 {
 		return nil
 	}
 
-	return append(
-		[]byte(nil),
-		buffer[:n]...,
-	)
+	for err == nil && n < len(buffer) {
+		idleDeadline := time.Now().Add(50 * time.Millisecond)
+		if idleDeadline.After(deadline) {
+			idleDeadline = deadline
+		}
+
+		if err := conn.SetReadDeadline(idleDeadline); err != nil {
+			break
+		}
+
+		var read int
+		read, err = conn.Read(buffer[n:])
+		n += read
+	}
+
+	_ = conn.SetReadDeadline(deadline)
+	return buffer[:n]
 }

@@ -5,14 +5,8 @@ import (
 	"regexp"
 )
 
-func compileMatcher(
-	raw templateMatcher,
-) (Matcher, bool) {
-	if raw.Negative ||
-		raw.MatchAll ||
-		raw.Encoding != "" &&
-			raw.Encoding != "hex" {
-
+func compileMatcher(raw templateMatcher) (Matcher, bool) {
+	if raw.Encoding != "" && raw.Encoding != "hex" {
 		return Matcher{}, false
 	}
 
@@ -22,39 +16,34 @@ func compileMatcher(
 		return Matcher{}, false
 	}
 
-	condition, ok := normalizeCondition(
-		raw.Condition,
-	)
-
+	condition, ok := normalizeCondition(raw.Condition)
 	if !ok {
 		return Matcher{}, false
+	}
+	if raw.MatchAll {
+		condition = "and"
 	}
 
 	matcher := Matcher{
 		Condition:       condition,
 		CaseInsensitive: raw.CaseInsensitive,
+		Negative:        raw.Negative,
 	}
 
 	switch raw.Type {
 	case "word", "binary":
-		if len(raw.Words) == 0 ||
-			len(raw.Words) > 64 {
-
+		if len(raw.Words) == 0 || len(raw.Words) > 64 {
 			return Matcher{}, false
 		}
 
 		for _, word := range raw.Words {
 			var data []byte
 
-			if raw.Type == "binary" ||
-				raw.Encoding == "hex" {
-
+			if raw.Type == "binary" || raw.Encoding == "hex" {
 				decoded, err := hex.DecodeString(word)
-
 				if err != nil {
 					return Matcher{}, false
 				}
-
 				data = decoded
 			} else {
 				data = []byte(word)
@@ -64,16 +53,11 @@ func compileMatcher(
 				return Matcher{}, false
 			}
 
-			matcher.Words = append(
-				matcher.Words,
-				data,
-			)
+			matcher.Words = append(matcher.Words, data)
 		}
 
 	case "regex":
-		if len(raw.Regex) == 0 ||
-			len(raw.Regex) > 32 {
-
+		if len(raw.Regex) == 0 || len(raw.Regex) > 32 {
 			return Matcher{}, false
 		}
 
@@ -87,15 +71,11 @@ func compileMatcher(
 			}
 
 			compiled, err := regexp.Compile(pattern)
-
 			if err != nil {
 				return Matcher{}, false
 			}
 
-			matcher.Regexes = append(
-				matcher.Regexes,
-				compiled,
-			)
+			matcher.Regexes = append(matcher.Regexes, compiled)
 		}
 
 	default:

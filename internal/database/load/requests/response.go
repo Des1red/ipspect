@@ -2,23 +2,18 @@ package requests
 
 import "bytes"
 
-func MatchResponse(
-	probe Probe,
-	response []byte,
-) bool {
-	if len(response) == 0 ||
-		len(probe.Matchers) == 0 {
-
+func MatchResponse(probe Probe, response []byte) bool {
+	if len(response) == 0 || len(probe.Matchers) == 0 {
 		return false
 	}
 
 	matched := probe.Condition == "and"
 
 	for _, rule := range probe.Matchers {
-		ok := matchResponseRule(
-			rule,
-			response,
-		)
+		ok := matchResponseRule(rule, response)
+		if rule.Negative {
+			ok = !ok
+		}
 
 		if probe.Condition == "and" {
 			matched = matched && ok
@@ -30,13 +25,8 @@ func MatchResponse(
 	return matched
 }
 
-func matchResponseRule(
-	rule Matcher,
-	response []byte,
-) bool {
-	total := len(rule.Words) +
-		len(rule.Regexes)
-
+func matchResponseRule(rule Matcher, response []byte) bool {
+	total := len(rule.Words) + len(rule.Regexes)
 	if total == 0 {
 		return false
 	}
@@ -44,10 +34,7 @@ func matchResponseRule(
 	matched := rule.Condition == "and"
 
 	for _, word := range rule.Words {
-		ok := bytes.Contains(
-			response,
-			word,
-		)
+		ok := bytes.Contains(response, word)
 
 		if rule.CaseInsensitive {
 			ok = bytes.Contains(

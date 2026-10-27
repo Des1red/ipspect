@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"ipspect/internal/models"
 	"ipspect/internal/output"
-	"strings"
 )
 
 func (s *Session) Enrich(
@@ -94,18 +93,4 @@ func (s *Session) Enrich(
 	)
 
 	return match
-}
-
-func serverHeader(
-	headers map[string][]string,
-) string {
-	for key, values := range headers {
-		if strings.EqualFold(key, "Server") &&
-			len(values) > 0 {
-
-			return strings.TrimSpace(values[0])
-		}
-	}
-
-	return ""
 }

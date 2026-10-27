@@ -252,10 +252,7 @@ func (s *Session) matchHTTPHeaders(
 			continue
 		}
 
-		key := "http_header." +
-			strings.ToLower(
-				strings.ReplaceAll(name, "-", ""),
-			)
+		key := "http_header." + strings.ToLower(name)
 
 		output.Log(
 			"debug",

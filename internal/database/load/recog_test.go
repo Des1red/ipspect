@@ -13,6 +13,12 @@ func TestLoadRecog(t *testing.T) {
 		"smtp.banner",
 		"http_header.server",
 		"telnet_banners",
+		"imap4.banner",
+		"nntp.banner",
+		"pop3.banner",
+		"mysql.banners",
+		"http_header.x-powered-by",
+		"http_header.x-fortisandbox-version",
 	}
 
 	for _, key := range required {
@@ -41,7 +47,7 @@ func TestRecogCatalog(t *testing.T) {
 
 	catalog := RecogCatalog()
 
-	if len(catalog) < 5 {
+	if len(catalog) < 51 {
 		t.Fatalf(
 			"expected at least 5 databases, got %d",
 			len(catalog),

@@ -123,3 +123,59 @@ func TestRecogRawSSH(t *testing.T) {
 		)
 	}
 }
+
+func TestRecogCatalogRoutesServiceBanners(t *testing.T) {
+	if err := load.LoadRecog(); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		service string
+		banner  string
+	}{
+		{service: "imap", banner: "Dovecot ready."},
+		{service: "nntp", banner: "CCProxy NNTP Service"},
+		{
+			service: "pop3",
+			banner:  "Microsoft Exchange Server 2007 POP3 service ready",
+		},
+		{service: "mysql", banner: "8.0.36"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.service, func(t *testing.T) {
+			match := (&Session{}).RecognizePassive(
+				models.RecogEvidence{
+					ServiceHint: test.service,
+					Banner:      test.banner,
+				},
+			)
+
+			if match.Service != test.service {
+				t.Fatalf("expected %s, got %+v", test.service, match)
+			}
+		})
+	}
+}
+
+func TestRecogHTTPHeaderDatabaseRouting(t *testing.T) {
+	if err := load.LoadRecog(); err != nil {
+		t.Fatal(err)
+	}
+
+	match := (&Session{}).RecognizePassive(
+		models.RecogEvidence{
+			ServiceHint: "http",
+			Banner:      "HTTP/1.1 200 OK",
+			Headers: map[string][]string{
+				"X-Powered-By": {"PHP/8.2.14"},
+			},
+		},
+	)
+
+	if match.Service != "http" ||
+		!strings.Contains(match.Product, "PHP") ||
+		!strings.Contains(match.Product, "8.2.14") {
+		t.Fatalf("unexpected HTTP header fingerprint: %+v", match)
+	}
+}
